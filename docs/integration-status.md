@@ -2,40 +2,31 @@
 
 Requirements baseline: `SV-InsuranceAgent-requirements.pdf`, v0.2, November 5, 2026.
 
-## Implemented in this branch
+## Included on this branch
 
-- Conservative three-intent routing: `answer_claim`, `file_claim`, `save_claim_status`.
-- Short clarification for ambiguous requests and missing claim selection on status updates.
-- Code-owned, nonnegative, decimal-safe deductible estimate.
-- Read-only `POST /workflow/route` and `POST /workflow/estimate` preview endpoints.
-- Unit and API contract tests.
+The earlier conservative router, deterministic estimate, read-only workflow preview
+endpoints, and their authored tests are preserved.
 
-These are foundational utilities, **not** an end-to-end integrated app. They do not authenticate
-users, retrieve policies, create claim records, approve claims, generate packets or file claims.
-Do not attach the route endpoint directly to a final action.
+The database-only increment adds the six application tables, pgvector schema contract,
+owner-linked foreign keys, approval/version constraints, a transactional checksum-tracked
+migration runner, read-only verification, and automated database tests. See
+[database.md](database.md) for setup, safety boundaries, and test evidence.
 
-## Existing foundation retained
+Local DB-tooling checks: **17 passed**. PostgreSQL-dependent tests: **32 skipped** locally
+because a server/driver was unavailable. The GitHub Actions result for the exact commit
+is the source of truth for real DB tests and the container-restart probe.
 
-The repository already contains page-aware policy extraction/chunking, a retrieval interface,
-and a PostgreSQL/pgvector Docker service. The embeddings provider and persistent chunk store
-are interfaces only and still need implementations.
+**Committed schema files do not mean a deployed database has been migrated.** No local
+or deployed user database was changed in this work. API data routes have not yet been
+connected to these tables. The broader uploaded integration overlay is still not merged.
 
-## Outstanding for R1–R14
+## Still outstanding
 
-1. Build auth, expiring HttpOnly sessions, owner-scoped six-table database and migrations.
-2. Implement text-PDF policy uploads, embeddings, pgvector store and citation-aware Q&A.
-3. Implement claim drafting, read-only reviewer, at most one refinement, missing facts.
-4. Implement human review with version-bound approval and guarded PDF export.
-5. Implement UI dashboard, chat/history, status-event confirmation and persistent files.
-6. Implement the 12-case golden evaluation, traces and measured report.
+1. Authentication, sessions, owner-scoped API persistence, and transactional approval events.
+2. Policy uploads, a real embedding provider, database-backed retrieval and cited answers.
+3. Claim drafting, reviewer/refinement loop, and complete human-review/export actions.
+4. UI dashboard, chat/history, confirmed status updates, and persistent uploaded files.
+5. Golden evaluation, traces, measured end-to-end report, and full browser validation.
 
-## Verify locally
-
-```sh
-cd apps/api
-python -m pip install -e '.[test]'
-pytest -q
-uvicorn app.main:app --reload
-```
-
-The tests were authored but **not executed** in this GitHub connector session.
+This remains a draft integration PR, not a finished end-to-end application. Existing
+page-aware RAG interfaces and the Compose database volume are retained unchanged.

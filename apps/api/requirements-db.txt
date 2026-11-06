@@ -1,0 +1,3 @@
+# Database-only tooling. The web API dependencies remain in pyproject.toml.
+psycopg[binary]>=3.2,<4
+pytest>=8,<10
