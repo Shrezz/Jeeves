@@ -9,7 +9,7 @@ from typing import Any
 @dataclass(frozen=True)
 class Check:
     name: str
-    passed: bool
+    passed: bool | None
     expected: Any
     actual: Any
 
@@ -28,5 +28,16 @@ def evaluate(expected: dict[str, Any], actual: dict[str, Any]) -> list[Check]:
             actual_value = bool(actual.get("approval_required"))
         else:
             actual_value = actual.get(name)
-        checks.append(Check(name, actual_value == expected_value, expected_value, actual_value))
+        measured = name in actual or name in {
+            "citation_required",
+            "human_approval_required",
+        }
+        checks.append(
+            Check(
+                name,
+                actual_value == expected_value if measured else None,
+                expected_value,
+                actual_value,
+            )
+        )
     return checks

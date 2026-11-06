@@ -4,4 +4,20 @@
 
 `evaluators.py` provides starter deterministic field checks. Add exact code evaluators for routing, arithmetic, citation presence, approvals, version checks, persistence, idempotency, and user isolation. Use a human rubric to assess whether policy evidence actually supports an explanation.
 
-`run_eval.py` is a scaffold: implement `run_case()` to call the same backend workflow service as the app. Record actual results and failures in Langfuse or a clearly labeled local report. Do not report an evaluation score until the workflow adapter is wired and scenarios have run.
+`run_eval.py` now calls the same public API used by the UI. With the backend running,
+set `EVAL_API_TOKEN` to its bearer token in your environment, then from the repo root:
+
+```bash
+apps/api/.venv/bin/python evals/run_eval.py evals/datasets/dev.jsonl \
+  --policy-id demo-policy --claim-id demo-window --output reports/dev-api.json
+```
+
+The optional ID arguments map old dataset selections to the seeded demo. They also change
+the available claim context, so fixture results are only integration checks. Real evaluations
+must seed scenario-specific facts/policies and use real models. Do not tune on held-out cases.
+
+The report distinguishes data `mode` and `model_mode`. Missing semantic measurements are
+`passed: null` and excluded from measured totals. Adversarial fixture injection is explicitly
+unscored by this HTTP runner; the Python graph tests exercise fabricated citations and
+bounded refinement. A human rubric is still needed for factual support/grounding. No
+LangSmith experiment or live model-quality score is implied by these offline checks.
