@@ -1,0 +1,10 @@
+.env
+logs/
+chroma_store/
+eval_results/
+__pycache__/
+.venv/
+policy_documents/
+try_policy_rag_*.py
+MCM_*.xlsx
+.DS_Store
