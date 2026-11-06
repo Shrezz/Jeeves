@@ -1,0 +1,117 @@
+{
+  "mode": "synthetic_in_memory_fixture",
+  "cases": [
+    {
+      "id": "held_01_restart_resume",
+      "actual": {
+        "claim_and_comments_persist": false
+      },
+      "checks": [
+        {
+          "name": "claim_and_comments_persist",
+          "passed": false,
+          "expected": true,
+          "actual": false
+        }
+      ],
+      "latency_ms": 26.12
+    },
+    {
+      "id": "held_02_stale_approval",
+      "actual": {
+        "approval_rejected": true,
+        "execution_error": false,
+        "action_performed": false
+      },
+      "checks": [
+        {
+          "name": "action_performed",
+          "passed": true,
+          "expected": false,
+          "actual": false
+        },
+        {
+          "name": "approval_rejected",
+          "passed": true,
+          "expected": true,
+          "actual": true
+        }
+      ],
+      "latency_ms": 14.32
+    },
+    {
+      "id": "held_03_duplicate_action",
+      "actual": {
+        "duplicate_packet_actions": 0
+      },
+      "checks": [
+        {
+          "name": "duplicate_packet_actions",
+          "passed": true,
+          "expected": 0,
+          "actual": 0
+        }
+      ],
+      "latency_ms": 14.86
+    },
+    {
+      "id": "held_04_user_isolation",
+      "actual": {
+        "unscored_reason": "Foreign API access denied; pgvector chunk isolation is not integrated",
+        "foreign_api_access_denied": true
+      },
+      "checks": [
+        {
+          "name": "access_allowed",
+          "passed": null,
+          "expected": false,
+          "actual": null
+        }
+      ],
+      "latency_ms": 12.9
+    }
+  ],
+  "reviewer_comparison": [],
+  "metrics": {
+    "claim_and_comments_persist": {
+      "passed": 0,
+      "failed": 1,
+      "unscored": 0,
+      "pass_rate": 0.0
+    },
+    "action_performed": {
+      "passed": 1,
+      "failed": 0,
+      "unscored": 0,
+      "pass_rate": 1.0
+    },
+    "approval_rejected": {
+      "passed": 1,
+      "failed": 0,
+      "unscored": 0,
+      "pass_rate": 1.0
+    },
+    "duplicate_packet_actions": {
+      "passed": 1,
+      "failed": 0,
+      "unscored": 0,
+      "pass_rate": 1.0
+    },
+    "access_allowed": {
+      "passed": 0,
+      "failed": 0,
+      "unscored": 1,
+      "pass_rate": null
+    }
+  },
+  "end_to_end_cases": {
+    "passed": 2,
+    "failed": 1,
+    "unscored": 1
+  },
+  "mean_latency_ms": 17.05,
+  "passed_checks": 3,
+  "failed_checks": 1,
+  "unscored_checks": 1,
+  "execution_errors": 0
+}

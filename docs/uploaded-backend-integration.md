@@ -22,8 +22,9 @@ are **not unified yet**.
 
 **Important:** this note documents an integration overlay assembled outside the
 GitHub repository. It does **not** mean the 78 overlay files have been committed
-to GitHub. The PR currently contains only the workflow-preview foundation and
-documentation. Do not merge as a completed MVP.
+to GitHub. This branch also includes a separately developed agent graph and synthetic
+API, plus the database schema and workflow-preview foundation. Those are not the
+uploaded overlay and do not yet constitute a completed MVP.
 
 ## Verification to date
 
@@ -32,5 +33,6 @@ documentation. Do not merge as a completed MVP.
   $1,400/$1,000 -> $400; $2,500/$1,000 -> $1,500.
 - PostgreSQL-backed tests were **not run** in the available sandbox
   (psycopg and a running PostgreSQL instance were unavailable).
-- Agents, reviewer and embeddings are explicit deterministic stubs; Langfuse and
-  LangSmith integrations remain unfinished. No insurer filing is performed.
+- In the prepared overlay, agents, reviewer and embeddings were deterministic stubs;
+  its Langfuse and LangSmith integrations were unfinished. This is historical evidence
+  about that overlay, not a claim about the separate agent graph on this branch.

@@ -1,0 +1,48 @@
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	begin_request(begin_request)
+	router(router)
+	answer_claim(answer_claim)
+	save_claim_status(save_claim_status)
+	file_claim(file_claim)
+	reviewer(reviewer)
+	human_review(human_review)
+	clarify(clarify)
+	commit_action(commit_action)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> begin_request;
+	answer_claim -.-> clarify;
+	answer_claim -.-> reviewer;
+	begin_request --> router;
+	clarify -.-> answer_claim;
+	clarify -.-> file_claim;
+	clarify -.-> router;
+	clarify -.-> save_claim_status;
+	file_claim -.-> clarify;
+	file_claim -.-> reviewer;
+	human_review -.-> __end__;
+	human_review -.-> answer_claim;
+	human_review -.-> commit_action;
+	human_review -.-> file_claim;
+	human_review -.-> save_claim_status;
+	reviewer -.-> __end__;
+	reviewer -.-> answer_claim;
+	reviewer -.-> clarify;
+	reviewer -.-> file_claim;
+	reviewer -.-> human_review;
+	reviewer -.-> save_claim_status;
+	router -.-> answer_claim;
+	router -.-> clarify;
+	router -.-> file_claim;
+	router -.-> save_claim_status;
+	save_claim_status -.-> clarify;
+	save_claim_status -.-> reviewer;
+	commit_action --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
