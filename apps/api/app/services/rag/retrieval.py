@@ -38,6 +38,12 @@ def retrieve_policy_evidence(
                 query_embedding=vectors[0],
                 limit=limit,
             )
+            if any(
+                chunk.user_id != user_id or chunk.policy_id != policy_id for chunk, _ in results
+            ):
+                raise ValueError(
+                    "Retrieved evidence does not belong to the selected owner and policy"
+                )
         span.update(output={"chunk_ids": [chunk.id for chunk, _ in results], "count": len(results)})
     return [
         Citation(

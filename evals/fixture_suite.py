@@ -210,6 +210,7 @@ def run_fixture_case(case):
             actual["estimated_payment"] = estimate["estimated_payment"]
         if pending.get("kind") == "clarification":
             actual["must_ask_for_missing_fact"] = bool(pending.get("questions"))
+            actual["clarification_questions"] = pending.get("questions", [])
         if run.get("status") == "awaiting_information":
             actual["final_status"] = "needs_info"
         if case_id == "dev_04_exclusion" and coverage:

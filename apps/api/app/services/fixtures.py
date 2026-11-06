@@ -192,16 +192,24 @@ class FixtureModel:
         amounts = re.findall(r"\$\s*(\d+(?:\.\d{1,2})?)", message)
         if amounts:
             facts = facts.model_copy(update={"repair_cost": Decimal(amounts[-1])})
-        if "wear" in lower:
+        wear_cause = bool(re.search(r"\b(?:wear|worn)(?:\s+(?:and\s+tear|out))?\b", lower))
+        wind_cause = bool(re.search(r"\b(?:wind|windborne|storm)\b", lower))
+        repair_complete = bool(
+            re.search(
+                r"\brepair\s+(?:(?:is|was|has\s+been)\s+)?(?:complete|completed|finished)\b", lower
+            )
+        )
+        if wear_cause:
             facts = facts.model_copy(update={"cause": "Wear and tear"})
-        elif "wind" in lower or "storm" in lower:
+        elif wind_cause:
             facts = facts.model_copy(update={"cause": "Windborne debris"})
         if output_type is RouteDecision:
             route = (
                 "file_claim"
                 if any(w in lower for w in ("file", "packet", "prepare"))
                 else "save_claim_status"
-                if any(w in lower for w in ("save", "update", "paid", "resolved"))
+                if repair_complete
+                or any(w in lower for w in ("save", "update", "paid", "resolved"))
                 else "answer_claim"
                 if any(w in lower for w in ("cover", "deductible", "window"))
                 else None
@@ -221,27 +229,49 @@ class FixtureModel:
         if output_type is StatusDraft:
             return StatusDraft(
                 note=message,
-                status="resolved" if "resolv" in lower else "repaired" if amounts else None,
+                status="resolved"
+                if "resolv" in lower
+                else "repaired"
+                if repair_complete or amounts
+                else None,
                 facts=IncidentFacts(repair_cost=facts.repair_cost) if amounts else IncidentFacts(),
             )
         evidence = payload.get("evidence", [])
-        unknown = facts.cause is None or not evidence
-        covered = bool(facts.cause and "wind" in facts.cause.lower())
+        unsupported_topic = bool(
+            re.search(
+                r"\b(?:glass\s+treatment|coatings?|tint(?:ing)?|jewel(?:ry|lery)|theft|"
+                r"flood|earthquake|fire|mold|roof|vehicle|liability)\b",
+                lower,
+            )
+        )
+        covered = bool(
+            facts.cause and re.search(r"\b(?:wind|windborne|storm)\b", facts.cause.lower())
+        )
+        excluded = bool(facts.cause and re.search(r"\b(?:wear|worn)\b", facts.cause.lower()))
+        unknown = not evidence or unsupported_topic or not (covered or excluded)
         assessment = CoverageDraft(
             conclusion="unclear"
             if unknown
             else "likely_covered"
             if covered
             else "likely_not_covered",
-            explanation="The synthetic wind clause may apply. The $1,000 deductible is subtracted from covered repair costs."
-            if covered
-            else "The synthetic wear-and-tear exclusion may apply."
-            if not unknown
-            else "More incident or policy information is needed.",
+            explanation=(
+                "More incident or policy information is needed."
+                if unknown
+                else "The synthetic wind clause may apply. The $1,000 deductible is subtracted from covered repair costs."
+                if covered
+                else "The synthetic wear-and-tear exclusion may apply."
+            ),
             citation_ids=[evidence[0]["chunk_id"]] if evidence else [],
-            missing_information=["What caused the window damage?"] if unknown else [],
-            covered_amount=facts.repair_cost if covered else None,
-            deductible=Decimal("1000.00") if covered else None,
+            missing_information=(
+                ["Please provide policy evidence about the requested coverage."]
+                if unsupported_topic or not evidence or (facts.cause and not covered and not excluded)
+                else ["What caused the window damage?"]
+                if unknown
+                else []
+            ),
+            covered_amount=facts.repair_cost if covered and not unknown else None,
+            deductible=Decimal("1000.00") if covered and not unknown else None,
         )
         if output_type is CoverageDraft:
             return assessment

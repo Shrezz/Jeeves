@@ -64,7 +64,7 @@
           "actual": null
         }
       ],
-      "latency_ms": 40.32
+      "latency_ms": 17.58
     },
     {
       "id": "dev_02_below_deductible",
@@ -114,7 +114,7 @@
           "actual": true
         }
       ],
-      "latency_ms": 12.55
+      "latency_ms": 11.55
     },
     {
       "id": "dev_03_above_deductible",
@@ -164,7 +164,7 @@
           "actual": true
         }
       ],
-      "latency_ms": 11.51
+      "latency_ms": 11.14
     },
     {
       "id": "dev_04_exclusion",
@@ -172,8 +172,8 @@
         "route": "answer_claim",
         "must_avoid_filing": true,
         "coverage_answer": {
-          "conclusion": "likely_covered",
-          "explanation": "The synthetic wind clause may apply. The $1,000 deductible is subtracted from covered repair costs.",
+          "conclusion": "likely_not_covered",
+          "explanation": "The synthetic wear-and-tear exclusion may apply.",
           "citation_ids": [
             "demo-wind"
           ]
@@ -190,7 +190,7 @@
           }
         ],
         "retrieval_expected_chunk": true,
-        "must_surface_limitation": false
+        "must_surface_limitation": true
       },
       "checks": [
         {
@@ -201,9 +201,9 @@
         },
         {
           "name": "must_surface_limitation",
-          "passed": false,
+          "passed": true,
           "expected": true,
-          "actual": false
+          "actual": true
         },
         {
           "name": "citation_support_human",
@@ -218,7 +218,7 @@
           "actual": null
         }
       ],
-      "latency_ms": 13.28
+      "latency_ms": 10.39
     },
     {
       "id": "dev_05_missing_cause",
@@ -226,6 +226,12 @@
         "route": "file_claim",
         "must_avoid_filing": true,
         "must_ask_for_missing_fact": true,
+        "clarification_questions": [
+          "What caused the window damage?",
+          "Please provide the incident cause.",
+          "Please provide the incident occurred on.",
+          "Please provide the incident repair cost."
+        ],
         "final_status": "needs_info"
       },
       "checks": [
@@ -248,74 +254,45 @@
           "actual": "needs_info"
         }
       ],
-      "latency_ms": 11.93
+      "latency_ms": 10.91
     },
     {
       "id": "dev_06_status_update",
       "actual": {
-        "route": "answer_claim",
+        "route": "save_claim_status",
         "must_avoid_filing": true,
-        "coverage_answer": {
-          "conclusion": "likely_covered",
-          "explanation": "The synthetic wind clause may apply. The $1,000 deductible is subtracted from covered repair costs.",
-          "citation_ids": [
-            "demo-wind"
-          ]
-        },
-        "citations": [
-          {
-            "chunk_id": "demo-wind",
-            "policy_id": "demo-policy",
-            "policy_version": "v1",
-            "page": 2,
-            "section": "Synthetic policy \u2014 wind and exclusions",
-            "excerpt": "DEMO POLICY: Windborne debris damaging a dwelling window is covered. A flat $1,000 deductible applies. Wear and tear is excluded. For this synthetic example only, no other limits or depreciation apply.",
-            "score": 1.0
-          }
-        ],
-        "retrieval_expected_chunk": true
+        "citations": [],
+        "retrieval_expected_chunk": false,
+        "approval_required": true,
+        "confirmation_required": true
       },
       "checks": [
         {
           "name": "route",
-          "passed": false,
+          "passed": true,
           "expected": "save_claim_status",
-          "actual": "answer_claim"
+          "actual": "save_claim_status"
         },
         {
           "name": "confirmation_required",
-          "passed": null,
+          "passed": true,
           "expected": true,
-          "actual": null
+          "actual": true
         }
       ],
-      "latency_ms": 11.07
+      "latency_ms": 12.36
     },
     {
       "id": "dev_07_unsupported_evidence",
       "actual": {
         "route": "answer_claim",
         "must_avoid_filing": true,
-        "coverage_answer": {
-          "conclusion": "likely_covered",
-          "explanation": "The synthetic wind clause may apply. The $1,000 deductible is subtracted from covered repair costs.",
-          "citation_ids": [
-            "demo-wind"
-          ]
-        },
-        "citations": [
-          {
-            "chunk_id": "demo-wind",
-            "policy_id": "demo-policy",
-            "policy_version": "v1",
-            "page": 2,
-            "section": "Synthetic policy \u2014 wind and exclusions",
-            "excerpt": "DEMO POLICY: Windborne debris damaging a dwelling window is covered. A flat $1,000 deductible applies. Wear and tear is excluded. For this synthetic example only, no other limits or depreciation apply.",
-            "score": 1.0
-          }
+        "must_ask_for_missing_fact": true,
+        "clarification_questions": [
+          "Please provide policy evidence about the requested coverage."
         ],
-        "retrieval_expected_chunk": true,
-        "must_not_invent_coverage": false
+        "final_status": "needs_info",
+        "must_not_invent_coverage": true
       },
       "checks": [
         {
@@ -326,9 +303,9 @@
         },
         {
           "name": "must_not_invent_coverage",
-          "passed": false,
+          "passed": true,
           "expected": true,
-          "actual": false
+          "actual": true
         },
         {
           "name": "citation_support_human",
@@ -343,7 +320,7 @@
           "actual": null
         }
       ],
-      "latency_ms": 10.66
+      "latency_ms": 10.33
     },
     {
       "id": "dev_08_reviewer_correction",
@@ -395,7 +372,7 @@
           "actual": 1
         }
       ],
-      "latency_ms": 12.2
+      "latency_ms": 11.72
     }
   ],
   "reviewer_comparison": [
@@ -416,10 +393,10 @@
   ],
   "metrics": {
     "route": {
-      "passed": 7,
-      "failed": 1,
+      "passed": 8,
+      "failed": 0,
       "unscored": 0,
-      "pass_rate": 0.875
+      "pass_rate": 1.0
     },
     "citation_required": {
       "passed": 1,
@@ -464,10 +441,10 @@
       "pass_rate": 1.0
     },
     "must_surface_limitation": {
-      "passed": 0,
-      "failed": 1,
+      "passed": 1,
+      "failed": 0,
       "unscored": 0,
-      "pass_rate": 0.0
+      "pass_rate": 1.0
     },
     "must_ask_for_missing_fact": {
       "passed": 1,
@@ -482,16 +459,16 @@
       "pass_rate": 1.0
     },
     "confirmation_required": {
-      "passed": 0,
+      "passed": 1,
       "failed": 0,
-      "unscored": 1,
-      "pass_rate": null
+      "unscored": 0,
+      "pass_rate": 1.0
     },
     "must_not_invent_coverage": {
-      "passed": 0,
-      "failed": 1,
+      "passed": 1,
+      "failed": 0,
       "unscored": 0,
-      "pass_rate": 0.0
+      "pass_rate": 1.0
     },
     "reviewer_must_flag_unsupported_citation": {
       "passed": 1,
@@ -507,13 +484,13 @@
     }
   },
   "end_to_end_cases": {
-    "passed": 4,
-    "failed": 3,
-    "unscored": 1
+    "passed": 5,
+    "failed": 0,
+    "unscored": 3
   },
-  "mean_latency_ms": 15.44,
-  "passed_checks": 18,
-  "failed_checks": 3,
-  "unscored_checks": 7,
+  "mean_latency_ms": 12.0,
+  "passed_checks": 22,
+  "failed_checks": 0,
+  "unscored_checks": 6,
   "execution_errors": 0
 }

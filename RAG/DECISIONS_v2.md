@@ -1,6 +1,6 @@
 # policy_rag: Design Decisions (v2)
 
-Changes from v1: per-request trace logging (D14), API key from `.env` (D15), cosine distance in Chroma (D16), trace ids returned to the caller, test PDFs, answer key and `try_policy_rag_v3.py` bundled.
+Changes from v1: per-request trace logging (D14), API key from `.env` (D15), cosine distance in Chroma (D16), and trace IDs returned to the caller. The test PDFs, answer key, and `try_policy_rag_v3.py` referenced below are not present in this checkout and must be supplied separately before those examples can run.
 
 RAG over home insurance policy PDFs, built with LangChain, Chroma and OpenAI.
 Public entry point and the parent-module contract: `policy_rag/api.py`.
@@ -43,9 +43,9 @@ Public entry point and the parent-module contract: `policy_rag/api.py`.
 | 1 | Create a virtual environment (Python 3.10+) | `python3 -m venv .venv` then `source .venv/bin/activate` |
 | 2 | Install | `pip install -r requirements.txt` |
 | 3 | API key | `cp .env.example .env`, then paste the key after `OPENAI_API_KEY=` |
-| 4 | Try one policy interactively | `python try_policy_rag_v3.py` |
-| 5 | Ingest all 10 test PDFs and evaluate | `python -m policy_rag.evaluation --ingest` |
-| 6 | Re-evaluate after tuning `config.py` | `python -m policy_rag.evaluation` |
+| 4 | Try one policy interactively | `python try_policy_rag_v3.py` (script not included) |
+| 5 | Ingest test PDFs and evaluate | `python -m policy_rag.evaluation --ingest` (requires the missing answer key and test PDFs) |
+| 6 | Re-evaluate after tuning `config.py` | `python -m policy_rag.evaluation` (requires the missing answer key) |
 | 7 | Read traces | `logs/queries/<date>/*.json`, `logs/query_index.jsonl` |
 
 ## 4. Trace File Contents (query)

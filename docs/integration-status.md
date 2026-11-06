@@ -6,6 +6,8 @@ This branch combines the read-only `/workflow/route` and `/workflow/estimate` pr
 
 The schema is not yet connected to the agent's claim, policy, checkpoint, or final-action adapters. A committed schema does not mean a database has been migrated. The broader uploaded integration overlay is separate from the independently developed agent graph; see `uploaded-backend-integration.md` and `backend-integration.md`.
 
-Remaining work includes real authentication and sessions; owner-scoped Postgres/pgvector and file-storage adapters; durable run/checkpoint state; uploaded-policy ingestion; a downloadable PDF packet; and the web UI. The fixture results expose the in-memory restart limitation and unscored storage isolation. Human evidence review, live-model evaluation, and a live Langfuse export are still needed. No insurer filing is performed.
+Remaining work includes real authentication and sessions; owner-scoped Postgres/pgvector and file-storage adapters; durable run/checkpoint state; uploaded-policy ingestion; a downloadable PDF packet; and the web UI. The fixture results expose the in-memory restart limitation and unscored storage isolation. Synthetic Langfuse experiments have been exported and verified; human evidence review and live-model evaluation are still needed. No insurer filing is performed.
+
+`RAG/policy_rag/` is a separately developed Chroma/OpenAI implementation. It is not wired into the agent API and differs from the requirements' Postgres/pgvector design. Its referenced test PDFs, answer key, and interactive script are not present in the checkout. The team must choose the storage integration and supply the relevant synthetic fixtures and credentials before an end-to-end RAG evaluation is possible.
 
 Database tests require a disposable PostgreSQL server with pgvector and a `TEST_DATABASE_URL` whose database name ends in `_test`; see `database.md`. A skipped database test is not a database test pass.

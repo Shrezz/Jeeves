@@ -14,7 +14,7 @@
           "actual": false
         }
       ],
-      "latency_ms": 26.12
+      "latency_ms": 29.82
     },
     {
       "id": "held_02_stale_approval",
@@ -37,7 +37,7 @@
           "actual": true
         }
       ],
-      "latency_ms": 14.32
+      "latency_ms": 17.63
     },
     {
       "id": "held_03_duplicate_action",
@@ -52,7 +52,7 @@
           "actual": 0
         }
       ],
-      "latency_ms": 14.86
+      "latency_ms": 15.48
     },
     {
       "id": "held_04_user_isolation",
@@ -68,7 +68,7 @@
           "actual": null
         }
       ],
-      "latency_ms": 12.9
+      "latency_ms": 19.14
     }
   ],
   "reviewer_comparison": [],
@@ -109,7 +109,7 @@
     "failed": 1,
     "unscored": 1
   },
-  "mean_latency_ms": 17.05,
+  "mean_latency_ms": 20.52,
   "passed_checks": 3,
   "failed_checks": 1,
   "unscored_checks": 1,

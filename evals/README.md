@@ -14,6 +14,10 @@ apps/api/.venv/bin/python evals/fixture_suite.py evals/datasets/held_out.jsonl -
 
 Each scenario starts a separate in-memory synthetic agent service and uses the same API and graph as the demo. The suite includes a controlled bad-citation injection, one refinement, a stale approval, duplicate approval replay, a restart probe, and cross-user API access. Approvals are simulated only inside the isolated fixture. The restart probe recreates the in-memory service and is expected to expose its lack of durable state; it does not test the separate Postgres schema. The isolation probe checks the API boundary; direct pgvector chunk isolation remains unscored until its adapter is connected.
 
+For Python statement and branch coverage, run `uv run --locked pytest --cov=app --cov-branch --cov-report=term-missing` from `apps/api`. Skipped PostgreSQL tests are excluded from executed coverage and must be run separately with the disposable database described in `docs/database.md`.
+
+The `API tests and coverage` GitHub workflow runs the API suite and retains a coverage artifact on relevant pushes and pull requests. Database tests run in the separate PostgreSQL workflow; neither workflow measures the standalone `RAG/policy_rag` package.
+
 Reports include each case and check, passed/failed/unscored counts, per-check rates, end-to-end counts, elapsed time, and a two-case comparison of the injected draft before review and the result after review. The comparison examines citation references, not semantic correctness or live-model quality. The fixture model is deterministic; it does not establish real LLM accuracy. See `results/` for the recorded sample run and its failures.
 
 Add `--strict` to exit nonzero if any check fails, is unscored, or the scenario errors. This is suitable for a CI gate once the team has supplied the required human annotations and connected the missing integrations.

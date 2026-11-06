@@ -48,6 +48,25 @@ def test_manual_annotations_are_opt_in_and_not_invented(suite):
     assert by_name["explanation_correct_human"] is False
 
 
+@pytest.mark.parametrize(
+    "case_id, expected_check",
+    [
+        ("dev_04_exclusion", "must_surface_limitation"),
+        ("dev_06_status_update", "confirmation_required"),
+        ("dev_07_unsupported_evidence", "must_not_invent_coverage"),
+    ],
+)
+def test_previously_failed_fixture_scenarios(suite, case_id, expected_check):
+    cases = suite.load_cases(ROOT / "evals/datasets/dev.jsonl")
+    result = suite.run_one(next(case for case in cases if case["id"] == case_id))
+    assert (
+        next(check for check in result["checks"] if check["name"] == expected_check)["passed"]
+        is True
+    )
+    if case_id == "dev_07_unsupported_evidence":
+        assert result["actual"]["clarification_questions"]
+
+
 def test_strict_mode_does_not_succeed_on_failed_or_unscored_cases(suite, monkeypatch):
     monkeypatch.setattr(
         "sys.argv", ["fixture_suite.py", str(ROOT / "evals/datasets/dev.jsonl"), "--strict"]
