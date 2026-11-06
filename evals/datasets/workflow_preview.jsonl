@@ -1,0 +1,6 @@
+{"id":"route_coverage","input":{"kind":"route","message":"Is my broken window covered?"},"expected_output":{"intent":"answer_claim","needs_clarification":false}}
+{"id":"route_filing","input":{"kind":"route","message":"Prepare a claim for the broken window"},"expected_output":{"intent":"file_claim","needs_clarification":false}}
+{"id":"route_status","input":{"kind":"route","message":"The repair is complete","selected_claim_id":"synthetic-claim"},"expected_output":{"intent":"save_claim_status","needs_clarification":false}}
+{"id":"route_missing_claim","input":{"kind":"route","message":"The repair is complete"},"expected_output":{"intent":"save_claim_status","needs_clarification":true}}
+{"id":"estimate_below","input":{"kind":"estimate","eligible_loss":"150","deductible":"1000"},"expected_output":{"estimated_payment":"0.00"}}
+{"id":"estimate_above","input":{"kind":"estimate","eligible_loss":"1400","deductible":"1000"},"expected_output":{"estimated_payment":"400.00"}}
