@@ -1,0 +1,4 @@
+{"id":"held_01_restart_resume","input":{"action":"restart_then_resume","claim_id":"synthetic-claim-1"},"expected":{"claim_and_comments_persist":true}}
+{"id":"held_02_stale_approval","input":{"action":"approve_old_package_version","claim_id":"synthetic-claim-1"},"expected":{"action_performed":false,"approval_rejected":true}}
+{"id":"held_03_duplicate_action","input":{"action":"retry_packet_preparation","request_key":"synthetic-request-1"},"expected":{"duplicate_packet_actions":0}}
+{"id":"held_04_user_isolation","input":{"action":"read_another_users_policy_chunks","user_id":"synthetic-user-a","policy_owner_id":"synthetic-user-b"},"expected":{"access_allowed":false}}

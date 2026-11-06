@@ -1,0 +1,48 @@
+"""Retrieve policy evidence scoped to the authenticated owner and policy."""
+
+from __future__ import annotations
+
+from .types import Citation, EmbeddingProvider, PolicyChunkStore
+
+
+def retrieve_policy_evidence(
+    question: str,
+    *,
+    user_id: str,
+    policy_id: str,
+    embedder: EmbeddingProvider,
+    store: PolicyChunkStore,
+    limit: int = 5,
+    max_excerpt_chars: int = 500,
+) -> list[Citation]:
+    """Return ranked passages with page/section citations.
+
+    Resolve `user_id` from the authenticated session. The store must enforce
+    both owner and policy filters in its database query.
+    """
+    if not question.strip():
+        raise ValueError("question must not be empty")
+    if limit <= 0 or max_excerpt_chars <= 0:
+        raise ValueError("limit and max_excerpt_chars must be positive")
+
+    vectors = embedder.embed([question.strip()])
+    if len(vectors) != 1 or not vectors[0]:
+        raise ValueError("Embedding provider did not return one query vector")
+    results = store.search(
+        user_id=user_id,
+        policy_id=policy_id,
+        query_embedding=vectors[0],
+        limit=limit,
+    )
+    return [
+        Citation(
+            chunk_id=chunk.id,
+            policy_id=chunk.policy_id,
+            policy_version=chunk.policy_version,
+            page=chunk.page,
+            section=chunk.section,
+            excerpt=chunk.content[:max_excerpt_chars],
+            score=float(score),
+        )
+        for chunk, score in results
+    ]
