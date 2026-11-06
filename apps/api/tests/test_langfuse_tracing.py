@@ -66,3 +66,28 @@ def test_trace_failure_does_not_block_workflow(monkeypatch):
     response = TestClient(app).post("/workflow/route", json={"message": "Is this covered?"})
     assert response.status_code == 200
     assert response.json()["intent"] == "answer_claim"
+
+
+def test_ingestion_records_counts_without_policy_content(monkeypatch):
+    from app.services.rag import ingestion
+    from app.services.rag.types import PolicyChunk, PolicyPage
+
+    fake = FakeClient()
+    monkeypatch.setattr(tracing, "get_trace_client", lambda: fake)
+    page = PolicyPage(page=1, text="private policy text")
+    chunk = PolicyChunk(id="chunk-1", user_id="private-user", policy_id="private-policy",
+                        policy_version="1", page=1, section="coverage", content=page.text,
+                        embedding=(0.1,))
+    monkeypatch.setattr(ingestion, "extract_pdf_pages", lambda _: [page])
+    monkeypatch.setattr(ingestion, "chunk_policy_pages", lambda *args, **kwargs: [chunk])
+    monkeypatch.setattr(ingestion, "_embed_chunks", lambda *args, **kwargs: [chunk])
+    class Store:
+        def upsert(self, chunks):
+            assert chunks == [chunk]
+    assert ingestion.ingest_policy_pdf("private-path.pdf", user_id="private-user",
+                                       policy_id="private-policy", policy_version="1",
+                                       embedder=object(), store=Store()) == 1
+    assert {call["name"] for call in fake.calls} == {"policy-ingestion", "pdf-extraction", "policy-chunking", "policy-embedding", "policy-chunk-storage"}
+    captured = repr((fake.calls, fake.span.updates))
+    for secret in ("private policy text", "private-user", "private-policy", "private-path.pdf"):
+        assert secret not in captured

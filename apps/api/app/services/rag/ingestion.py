@@ -8,6 +8,7 @@ from typing import Sequence
 
 from pypdf import PdfReader
 
+from ...observability.tracing import observation
 from .chunking import chunk_policy_pages
 from .types import EmbeddingProvider, PolicyChunk, PolicyChunkStore, PolicyPage
 
@@ -64,16 +65,27 @@ def ingest_policy_pdf(
     batch_size: int = 64,
 ) -> int:
     """Ingest a policy PDF and return the number of stored chunks."""
-    pages = extract_pdf_pages(pdf_path)
-    chunks = chunk_policy_pages(
-        pages,
-        user_id=user_id,
-        policy_id=policy_id,
-        policy_version=policy_version,
-        max_tokens=max_tokens,
-        overlap_tokens=overlap_tokens,
-    )
-    if not chunks:
-        raise ValueError("No policy text chunks were produced")
-    store.upsert(_embed_chunks(chunks, embedder, batch_size=batch_size))
-    return len(chunks)
+    with observation("policy-ingestion") as span:
+        with observation("pdf-extraction") as extraction:
+            pages = extract_pdf_pages(pdf_path)
+            extraction.update(output={"page_count": len(pages)})
+        with observation("policy-chunking") as chunking:
+            chunks = chunk_policy_pages(
+                pages,
+                user_id=user_id,
+                policy_id=policy_id,
+                policy_version=policy_version,
+                max_tokens=max_tokens,
+                overlap_tokens=overlap_tokens,
+            )
+            if not chunks:
+                raise ValueError("No policy text chunks were produced")
+            chunking.update(output={"chunk_count": len(chunks)})
+        with observation("policy-embedding") as embedding:
+            embedded = _embed_chunks(chunks, embedder, batch_size=batch_size)
+            embedding.update(output={"vector_count": len(embedded)})
+        with observation("policy-chunk-storage") as storage:
+            store.upsert(embedded)
+            storage.update(output={"chunk_count": len(embedded)})
+        span.update(output={"chunk_count": len(chunks)})
+        return len(chunks)
