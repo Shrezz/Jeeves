@@ -18,8 +18,8 @@ jobs:
       run:
         working-directory: apps/api
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
       - name: Install uv and locked API dependencies
@@ -30,7 +30,7 @@ jobs:
         run: uv run --locked pytest -q tests --ignore=tests/database --cov=app --cov-branch --cov-report=term --cov-report=xml:coverage.xml
       - name: Retain coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: api-coverage
           path: apps/api/coverage.xml

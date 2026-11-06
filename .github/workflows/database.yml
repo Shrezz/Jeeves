@@ -41,8 +41,8 @@ jobs:
       run:
         working-directory: apps/api
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
       - name: Install database-only dependencies
@@ -67,7 +67,7 @@ jobs:
         run: python tests/database/restart_probe.py check
       - name: Retain test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: database-test-results
           path: apps/api/database-tests.xml
