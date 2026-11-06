@@ -10,6 +10,15 @@ Langfuse traces should cover the request workflow. The `evals/` runner should ca
 
 The connected graph and FastAPI endpoints are implemented. The explicit local demo uses
 in-memory checkpoints, run metadata, synthetic claim/policy adapters, and scripted model
-responses (or optional live Nebius models). Production Postgres persistence and login remain
-external integration work. Local JSON tracing is implemented; Langfuse is not connected.
+responses (or optional live Nebius models). The Postgres schema, migration runner, and
+database tests are included; connecting the workflow to persistent storage and production
+login remains integration work.
 See `backend-integration.md` and `api-contracts.md` for the current boundaries and limitations.
+
+The read-only `/workflow/route` and `/workflow/estimate` preview endpoints coexist with
+the authenticated `/agent/runs` workflow. Optional Langfuse observations cover these
+previews and the real policy-retrieval adapter; local JSON logs cover the agent workflow.
+Enable hosted observations with `LANGFUSE_TRACING_ENABLED=true` and Langfuse credentials.
+Preview traces omit raw messages, policy text, credentials, and user/claim IDs; retrieval
+records chunk IDs and counts. Tracing failures do not block requests, and shutdown flushes
+pending observations. Full agent/reviewer/approval spans in Langfuse remain future work.

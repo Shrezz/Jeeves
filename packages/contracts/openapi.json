@@ -188,6 +188,94 @@
         }
       }
     },
+    "/workflow/route": {
+      "post": {
+        "tags": [
+          "workflow preview"
+        ],
+        "summary": "Route",
+        "description": "Preview a route only; no claim data is accessed or changed.",
+        "operationId": "route_workflow_route_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RouteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouterResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workflow/estimate": {
+      "post": {
+        "tags": [
+          "workflow preview"
+        ],
+        "summary": "Estimate",
+        "description": "Return a deterministic estimate; this is not a coverage determination.",
+        "operationId": "estimate_workflow_estimate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EstimateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Estimate Workflow Estimate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -404,6 +492,40 @@
           "explanation"
         ],
         "title": "CoverageDraft"
+      },
+      "EstimateRequest": {
+        "properties": {
+          "eligible_loss": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Eligible Loss"
+          },
+          "deductible": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Deductible"
+          }
+        },
+        "type": "object",
+        "required": [
+          "eligible_loss",
+          "deductible"
+        ],
+        "title": "EstimateRequest"
       },
       "HTTPValidationError": {
         "properties": {
@@ -786,6 +908,85 @@
           "coverage"
         ],
         "title": "ReviewedAnswer"
+      },
+      "RouteRequest": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Message"
+          },
+          "selected_claim_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Claim Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "RouteRequest"
+      },
+      "RouterResult": {
+        "properties": {
+          "intent": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "answer_claim",
+                  "file_claim",
+                  "save_claim_status"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intent"
+          },
+          "claim_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claim Id"
+          },
+          "needs_clarification": {
+            "type": "boolean",
+            "title": "Needs Clarification"
+          },
+          "clarification": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clarification"
+          }
+        },
+        "type": "object",
+        "required": [
+          "intent",
+          "claim_id",
+          "needs_clarification"
+        ],
+        "title": "RouterResult"
       },
       "RunView": {
         "properties": {

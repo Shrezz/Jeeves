@@ -18,7 +18,8 @@
 - [ ] Implement the claims read/write and artifact hooks using Postgres/file storage.
 - [ ] Persist run metadata, deduplication receipts, and LangGraph checkpoints together.
 - [ ] Run compatibility and quality evaluations using the chosen Nebius models/account.
-- [ ] Connect Langfuse/LangSmith if desired; current tracing/reports are explicitly local.
+- [x] Preserve optional Langfuse preview/retrieval observations and the synthetic preview experiment.
+- [ ] Add hosted spans for the full agent/reviewer/approval workflow; LangSmith remains optional.
 
 The unchecked items are integrations or live validation, not silently simulated production
 capabilities. The demo is intentionally single-process, in-memory, and synthetic. It can
@@ -81,7 +82,11 @@ check. Live calls have not been run as part of the offline test suite.
 Local JSON trace events include node completion, run timing/errors, cache hits, and actual
 token counts returned by Nebius. They omit policy text, messages, and credentials. Token
 counts are not fabricated for fixtures. Provider prices/cost totals are not assumed.
-The Langfuse variables inherited from the scaffold do not activate a Langfuse integration.
+Optional Langfuse observations for preview routing, deductible arithmetic, and the real RAG
+adapter are enabled by `LANGFUSE_TRACING_ENABLED=true` plus credentials. Full agent
+workflow events remain local JSON logs. Shutdown flushes pending Langfuse observations.
+The Postgres schema and migration/test tooling are included; workflow storage still needs
+to be connected to that schema and extended for durable run/checkpoint storage.
 
 ## Verification
 

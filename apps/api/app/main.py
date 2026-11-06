@@ -7,7 +7,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.agents import router
-from app.observability.tracing import configure_tracing
+from app.api.workflow import router as preview_router
+from app.observability.tracing import configure_tracing, flush_traces
 from app.services.bootstrap import demo_backend
 
 
@@ -15,12 +16,15 @@ def create_app(service=None, principal_resolver=None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(application: FastAPI):
         configure_tracing()
-        if service is None and os.environ.get("JEEVES_MODE") == "demo":
-            async with demo_backend() as (backend, auth):
-                application.state.workflow, application.state.principal_resolver = backend, auth
+        try:
+            if service is None and os.environ.get("JEEVES_MODE") == "demo":
+                async with demo_backend() as (backend, auth):
+                    application.state.workflow, application.state.principal_resolver = backend, auth
+                    yield
+            else:
                 yield
-        else:
-            yield
+        finally:
+            flush_traces()
 
     application = FastAPI(title="Jeeves Claim Companion API", version="0.2.0", lifespan=lifespan)
     application.state.workflow = service
@@ -39,6 +43,7 @@ def create_app(service=None, principal_resolver=None) -> FastAPI:
             allow_headers=["Authorization", "Content-Type"],
         )
     application.include_router(router)
+    application.include_router(preview_router)
 
     @application.get("/health")
     def health() -> dict[str, str]:

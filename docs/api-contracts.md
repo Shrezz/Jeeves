@@ -11,7 +11,13 @@ Interactive docs are at `/docs`; the generated contract is at `/openapi.json` an
 | `GET /agent/runs/{run_id}` | Read the current public result or pending action. |
 | `POST /agent/runs/{run_id}/responses` | Resume the pending clarification or human decision. |
 | `GET /artifacts/{artifact_id}` | Download an authorized, approved synthetic HTML packet. |
+| `POST /workflow/route` | Preview deterministic intent routing without reading or changing a claim. |
+| `POST /workflow/estimate` | Preview loss-minus-deductible arithmetic without determining coverage. |
 | `GET /health` | Process health; does not imply live integrations are connected. |
+
+The two `/workflow/*` previews are public, stateless utilities. They do not run the agent
+graph, authenticate a claim selection, or authorize any action. Use `/agent/runs` for the
+reviewed workflow and approved writes.
 
 This MVP uses ordinary request/response HTTP, not a durable background queue. The UI can
 show a loading state during POST and retain the returned run ID. GET is useful for reopening
