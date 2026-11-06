@@ -168,7 +168,8 @@ def test_default_app_exposes_contracts_without_fake_success(monkeypatch):
     monkeypatch.delenv("JEEVES_MODE", raising=False)
     with TestClient(create_app()) as client:
         assert client.get("/health").json() == {"status": "ok"}
-        assert "/agent/runs" in client.get("/openapi.json").json()["paths"]
+        paths = client.get("/openapi.json").json()["paths"]
+        assert {"/agent/runs", "/workflow/route", "/workflow/estimate"} <= paths.keys()
         response = client.post(
             "/agent/runs", json={"request_key": "x", "policy_id": "p", "message": "Hi"}
         )

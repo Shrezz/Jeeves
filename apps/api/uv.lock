@@ -205,7 +205,7 @@ wheels = [
 [[package]]
 name = "claim-companion-api"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
@@ -218,6 +218,12 @@ dependencies = [
     { name = "uvicorn", extra = ["standard"] },
 ]
 
+[package.optional-dependencies]
+test = [
+    { name = "httpx" },
+    { name = "pytest" },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "pytest" },
@@ -228,14 +234,17 @@ dev = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115,<1" },
     { name = "httpx", specifier = ">=0.28,<1" },
+    { name = "httpx", marker = "extra == 'test'", specifier = ">=0.27,<1" },
     { name = "langchain-core", specifier = ">=1.7,<2" },
     { name = "langfuse", specifier = ">=4,<6" },
     { name = "langgraph", specifier = ">=1.2.20,<2" },
     { name = "pydantic", specifier = ">=2.12,<3" },
     { name = "pypdf", specifier = ">=6,<7" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8,<10" },
     { name = "tiktoken", specifier = ">=0.9,<1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.34,<1" },
 ]
+provides-extras = ["test"]
 
 [package.metadata.requires-dev]
 dev = [

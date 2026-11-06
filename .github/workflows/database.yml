@@ -1,0 +1,74 @@
+name: Database schema verification
+on:
+  pull_request:
+    paths:
+      - 'apps/api/app/db/**'
+      - 'apps/api/migrations/**'
+      - 'apps/api/tests/database/**'
+      - 'apps/api/requirements-db.txt'
+      - '.github/workflows/database.yml'
+  push:
+    branches: ['integration/claim-companion-mvp']
+    paths:
+      - 'apps/api/app/db/**'
+      - 'apps/api/migrations/**'
+      - 'apps/api/tests/database/**'
+      - 'apps/api/requirements-db.txt'
+      - '.github/workflows/database.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: claim_test
+          POSTGRES_PASSWORD: ci-synthetic-only
+          POSTGRES_DB: claim_companion_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U claim_test -d claim_companion_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgresql://claim_test:ci-synthetic-only@localhost:5432/claim_companion_test
+      REQUIRE_DATABASE_TESTS: '1'
+      PYTHONPATH: .
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install database-only dependencies
+        run: python -m pip install -r requirements-db.txt
+      - name: Run migration and PostgreSQL constraint tests (no silent skips)
+        run: python -m pytest -q tests/database --junitxml=database-tests.xml
+      - name: Commit a synthetic persistence probe
+        run: python tests/database/restart_probe.py write
+      - name: Restart PostgreSQL and wait for readiness
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          docker restart "$POSTGRES_CONTAINER"
+          for attempt in $(seq 1 30); do
+            if docker exec "$POSTGRES_CONTAINER" pg_isready -U claim_test -d claim_companion_test; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+      - name: Verify schema and data after restart
+        run: python tests/database/restart_probe.py check
+      - name: Retain test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-test-results
+          path: apps/api/database-tests.xml
+          if-no-files-found: warn

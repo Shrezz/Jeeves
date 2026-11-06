@@ -14,4 +14,6 @@ responses (or optional live Nebius models). Production Postgres persistence and 
 external integration work. Local JSON tracing remains the fallback when Langfuse is disabled.
 See `backend-integration.md` and `api-contracts.md` for the current boundaries and limitations.
 
+The read-only `/workflow/route` and `/workflow/estimate` preview endpoints remain available alongside the agent API; they do not access or modify claims.
+
 Set `LANGFUSE_TRACING_ENABLED=true` and the Langfuse keys and base URL to enable export. By default traces omit raw messages, prompts, policy text, and reviewer details. `LANGFUSE_CAPTURE_SYNTHETIC_CONTENT=true` additionally records redacted model inputs/outputs, evidence excerpts, and reviewer feedback only when `JEEVES_MODE=demo`. That opt-in is exclusively for fictional data: never enter credentials, session tokens, or real policyholder data into demo inputs. Redaction is best effort, not a substitute for synthetic data. The app continues working if tracing is disabled or cannot initialize.

@@ -33,6 +33,8 @@ apps/api/.venv/bin/python evals/fixture_suite.py evals/datasets/held_out.jsonl -
 
 These experiments send the synthetic inputs, outputs, and measured scores to the configured Langfuse project; `unscored_checks` is recorded separately. They do not create a hosted Langfuse dataset. Model token usage is available only when the provider returns it; cost depends on Langfuse model pricing. Never put real credentials or real policyholder data in scenarios.
 
+The separate `langfuse_experiment.py` and `datasets/workflow_preview.jsonl` exercise the read-only router and deductible functions with six synthetic smoke cases. They are useful for preview checks and do not replace the 12-scenario workflow suite.
+
 ## Run against an integrated API
 
 Set `EVAL_API_TOKEN` for a dedicated synthetic account. The runner maps the scenario IDs to a seeded synthetic policy and claim:
