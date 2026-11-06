@@ -1,4 +1,4 @@
-"""Evaluate the public API; absent semantic/fixture measurements are explicitly unscored."""
+"""Run synthetic scenarios through the agent API and report unscored checks."""
 
 from __future__ import annotations
 
@@ -14,6 +14,70 @@ import httpx
 from evaluators import evaluate
 
 
+def stale_approval_case(
+    client: httpx.Client, *, policy_id: str | None, claim_id: str | None
+) -> dict[str, Any]:
+    """Probe a deliberately invalid approval only against the synthetic fixture API."""
+    if not policy_id or not claim_id:
+        return {"unscored_reason": "A synthetic policy and claim are required for stale approval"}
+    response = client.post(
+        "/agent/runs",
+        json={
+            "request_key": str(uuid4()),
+            "message": "I paid $150. Prepare the packet.",
+            "policy_id": policy_id,
+            "claim_id": claim_id,
+        },
+    )
+    response.raise_for_status()
+    run = response.json()
+    pending = run.get("pending") or {}
+    if (
+        run.get("mode") != "fixture"
+        or pending.get("kind") != "human_review"
+        or not isinstance(pending.get("artifact_version"), int)
+    ):
+        return {"unscored_reason": "Stale approval requires a pending fixture-mode review"}
+    edit = client.post(
+        f"/agent/runs/{run['run_id']}/responses",
+        json={
+            "request_key": str(uuid4()),
+            "interrupt_id": pending["interrupt_id"],
+            "decision": {
+                "artifact_version": pending["artifact_version"],
+                "action": "edit",
+                "feedback": "The repair actually cost $175.",
+            },
+        },
+    )
+    edit.raise_for_status()
+    revised = edit.json().get("pending") or {}
+    if (
+        revised.get("kind") != "human_review"
+        or revised.get("artifact_version", 0) <= pending["artifact_version"]
+    ):
+        return {"unscored_reason": "Editing did not produce a newer reviewable version"}
+    invalid = client.post(
+        f"/agent/runs/{run['run_id']}/responses",
+        json={
+            "request_key": str(uuid4()),
+            "interrupt_id": pending["interrupt_id"],
+            "decision": {"artifact_version": pending["artifact_version"], "action": "approve"},
+        },
+    )
+    if invalid.status_code != 409:
+        invalid.raise_for_status()
+    after = client.get(f"/agent/runs/{run['run_id']}")
+    after.raise_for_status()
+    current = after.json()
+    result = {"approval_rejected": invalid.status_code == 409, "execution_error": False}
+    if current.get("status") == "awaiting_review" and current.get("action_result") is None:
+        result["action_performed"] = False
+    elif current.get("action_result") is not None:
+        result["action_performed"] = True
+    return result
+
+
 def run_case(
     case_input: dict[str, Any],
     client: httpx.Client,
@@ -21,16 +85,24 @@ def run_case(
     policy_id: str | None = None,
     claim_id: str | None = None,
 ) -> dict[str, Any]:
+    """Use the public agent endpoint with synthetic scenarios."""
+    if case_input.get("action") == "approve_old_package_version":
+        return stale_approval_case(
+            client, policy_id=policy_id, claim_id=claim_id or case_input.get("claim_id")
+        )
     if case_input.get("evaluation_fixture"):
-        return {
-            "unscored_reason": "Adversarial fixture injection belongs in Python workflow tests."
-        }
+        return {"unscored_reason": "Adversarial fixture injection is not exposed by the public API"}
+    if "message" not in case_input:
+        return {"unscored_reason": "Lifecycle scenario requires an integration-specific adapter"}
+    selected_policy = policy_id or case_input.get("selected_policy_id")
+    if not selected_policy:
+        return {"unscored_reason": "No seeded policy ID is available"}
     response = client.post(
         "/agent/runs",
         json={
             "request_key": str(uuid4()),
             "message": case_input["message"],
-            "policy_id": policy_id or case_input["selected_policy_id"],
+            "policy_id": selected_policy,
             "claim_id": claim_id or case_input.get("selected_claim_id"),
         },
     )
@@ -38,74 +110,74 @@ def run_case(
     run = response.json()
     pending, answer = run.get("pending") or {}, run.get("answer") or {}
     estimate = pending.get("estimate") or answer.get("estimate") or {}
-    actual = {
-        "route": run["route"],
-        "citations": run["citations"],
-        "run_id": run["run_id"],
-        "mode": run["mode"],
-        "model_mode": run.get("model_mode", "unknown"),
-        "approval_required": pending.get("kind") == "human_review",
-        "confirmation_required": pending.get("kind") == "human_review",
-        "must_ask_for_missing_fact": pending.get("kind") == "clarification"
-        and bool(pending.get("questions")),
-        "final_status": "needs_info"
-        if run["status"] == "awaiting_information"
-        else run["status"],
-        "must_avoid_filing": run["action_result"] is None,
+    actual: dict[str, Any] = {
+        "route": run.get("route"),
+        "run_status": run.get("status"),
+        "execution_error": run.get("status") == "failed",
     }
+    if run.get("status") in {"completed", "awaiting_review"} and "citations" in run:
+        actual["citations"] = run["citations"]
+    if pending.get("kind") == "human_review":
+        actual["approval_required"] = True
+        actual["confirmation_required"] = True
+    if pending.get("kind") == "clarification":
+        actual["must_ask_for_missing_fact"] = bool(pending.get("questions"))
+    if run.get("status") == "awaiting_information":
+        actual["final_status"] = "needs_info"
     if estimate.get("estimated_payment") is not None:
-        actual["estimated_payment"] = float(estimate["estimated_payment"])
+        actual["estimated_payment"] = estimate["estimated_payment"]
     return actual
 
 
+def run_dataset(dataset: Path, client: httpx.Client, *, policy_id=None, claim_id=None) -> dict:
+    records = []
+    for line in dataset.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        case = json.loads(line)
+        try:
+            actual = run_case(case["input"], client, policy_id=policy_id, claim_id=claim_id)
+        except (httpx.HTTPError, ValueError, KeyError, TypeError):
+            actual = {
+                "unscored_reason": "Workflow request failed or returned an invalid response",
+                "execution_error": True,
+            }
+        checks = evaluate(case["expected"], actual)
+        records.append(
+            {"id": case["id"], "actual": actual, "checks": [asdict(check) for check in checks]}
+        )
+    if not records:
+        raise ValueError("Dataset is empty")
+    checks = [check for record in records for check in record["checks"]]
+    return {
+        "cases": records,
+        "error_cases": sum(r["actual"].get("execution_error") is True for r in records),
+        "passed_checks": sum(c["passed"] is True for c in checks),
+        "failed_checks": sum(c["passed"] is False for c in checks),
+        "unscored_checks": sum(c["passed"] is None for c in checks),
+    }
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("dataset", type=Path)
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
-    parser.add_argument("--policy-id", help="Optional mapping to a seeded policy ID")
-    parser.add_argument("--claim-id", help="Optional mapping to a seeded claim ID")
+    parser.add_argument("--policy-id", help="ID of the seeded synthetic policy")
+    parser.add_argument("--claim-id", help="Optional ID of a seeded synthetic claim")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     token = os.environ.get("EVAL_API_TOKEN")
     if not token:
-        parser.error("Set EVAL_API_TOKEN in the environment")
-    records = []
+        parser.error("Set EVAL_API_TOKEN for a synthetic evaluation account")
     with httpx.Client(
-        base_url=args.base_url,
-        timeout=180,
-        headers={"Authorization": "Bearer " + token},
+        base_url=args.base_url, timeout=180, headers={"Authorization": "Bearer " + token}
     ) as client:
-        for line in args.dataset.read_text().splitlines():
-            if not line.strip():
-                continue
-            case = json.loads(line)
-            actual = run_case(
-                case["input"], client, policy_id=args.policy_id, claim_id=args.claim_id
-            )
-            checks = (
-                []
-                if actual.get("unscored_reason")
-                else evaluate(case["expected"], actual)
-            )
-            records.append(
-                {
-                    "id": case["id"],
-                    "actual": actual,
-                    "checks": [asdict(check) for check in checks],
-                }
-            )
-    measured = [c for r in records for c in r["checks"] if c["passed"] is not None]
-    report = {
-        "note": "Fixture mode measures wiring only. Semantic grounding needs a human rubric.",
-        "measured_checks": len(measured),
-        "passed_checks": sum(c["passed"] for c in measured),
-        "cases": records,
-    }
-    encoded = json.dumps(report, indent=2)
+        report = run_dataset(args.dataset, client, policy_id=args.policy_id, claim_id=args.claim_id)
+    text = json.dumps(report, indent=2)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(encoded + "\n")
-    print(encoded)
+        args.output.write_text(text + "\n", encoding="utf-8")
+    print(text)
 
 
 if __name__ == "__main__":

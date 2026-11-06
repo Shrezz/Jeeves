@@ -14,7 +14,7 @@ from langgraph.types import Command
 
 from app.agents.context import AgentContext
 from app.agents.state import AgentState
-from app.observability.tracing import current_run_id
+from app.observability.tracing import current_run_id, observation, trace_session
 from app.schemas.agents import AgentRequest
 from app.schemas.workflow_api import PendingAction, ResumeRun, RunView, StartRun
 
@@ -126,6 +126,19 @@ class WorkflowService:
             return response
 
     async def execute(self, run_id: str, graph_input: Any) -> None:
+        with (
+            observation(
+                "agent-workflow", input={"mode": self.mode, "model_mode": self.model_mode}
+            ) as span,
+            trace_session(run_id),
+        ):
+            await self._execute_impl(run_id, graph_input)
+            failed = bool(self.runs[run_id].error)
+            span.update(output={"failed": failed})
+            if failed:
+                span.update(level="ERROR", status_message="Workflow execution failed")
+
+    async def _execute_impl(self, run_id: str, graph_input: Any) -> None:
         run = self.runs[run_id]
         run.running, run.error = True, None
         trace_token = current_run_id.set(run_id)

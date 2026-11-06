@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
-from typing import Sequence
 
 from pypdf import PdfReader
 
+from ...observability.tracing import observation
 from .chunking import chunk_policy_pages
 from .types import EmbeddingProvider, PolicyChunk, PolicyChunkStore, PolicyPage
 
@@ -39,7 +40,9 @@ def _embed_chunks(
         batch = chunks[start : start + batch_size]
         vectors = embedder.embed([chunk.content for chunk in batch])
         if len(vectors) != len(batch):
-            raise ValueError("Embedding provider returned a different number of vectors than inputs")
+            raise ValueError(
+                "Embedding provider returned a different number of vectors than inputs"
+            )
         for chunk, vector in zip(batch, vectors, strict=True):
             if not vector:
                 raise ValueError("Embedding provider returned an empty vector")
@@ -64,16 +67,27 @@ def ingest_policy_pdf(
     batch_size: int = 64,
 ) -> int:
     """Ingest a policy PDF and return the number of stored chunks."""
-    pages = extract_pdf_pages(pdf_path)
-    chunks = chunk_policy_pages(
-        pages,
-        user_id=user_id,
-        policy_id=policy_id,
-        policy_version=policy_version,
-        max_tokens=max_tokens,
-        overlap_tokens=overlap_tokens,
-    )
-    if not chunks:
-        raise ValueError("No policy text chunks were produced")
-    store.upsert(_embed_chunks(chunks, embedder, batch_size=batch_size))
-    return len(chunks)
+    with observation("policy-ingestion") as span:
+        with observation("pdf-extraction") as extraction:
+            pages = extract_pdf_pages(pdf_path)
+            extraction.update(output={"page_count": len(pages)})
+        with observation("policy-chunking") as chunking:
+            chunks = chunk_policy_pages(
+                pages,
+                user_id=user_id,
+                policy_id=policy_id,
+                policy_version=policy_version,
+                max_tokens=max_tokens,
+                overlap_tokens=overlap_tokens,
+            )
+            if not chunks:
+                raise ValueError("No policy text chunks were produced")
+            chunking.update(output={"chunk_count": len(chunks)})
+        with observation("policy-embedding") as embedding:
+            embedded = _embed_chunks(chunks, embedder, batch_size=batch_size)
+            embedding.update(output={"vector_count": len(embedded)})
+        with observation("policy-chunk-storage") as storage:
+            store.upsert(embedded)
+            storage.update(output={"chunk_count": len(embedded)})
+        span.update(output={"chunk_count": len(chunks)})
+        return len(chunks)

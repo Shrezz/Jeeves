@@ -18,7 +18,8 @@
 - [ ] Implement the claims read/write and artifact hooks using Postgres/file storage.
 - [ ] Persist run metadata, deduplication receipts, and LangGraph checkpoints together.
 - [ ] Run compatibility and quality evaluations using the chosen Nebius models/account.
-- [ ] Connect Langfuse/LangSmith if desired; current tracing/reports are explicitly local.
+- [x] Add optional Langfuse tracing and a local-data Langfuse experiment runner.
+- [ ] Verify traces and experiment exports against the team's Langfuse project and selected live models.
 
 The unchecked items are integrations or live validation, not silently simulated production
 capabilities. The demo is intentionally single-process, in-memory, and synthetic. It can
@@ -81,7 +82,7 @@ check. Live calls have not been run as part of the offline test suite.
 Local JSON trace events include node completion, run timing/errors, cache hits, and actual
 token counts returned by Nebius. They omit policy text, messages, and credentials. Token
 counts are not fabricated for fixtures. Provider prices/cost totals are not assumed.
-The Langfuse variables inherited from the scaffold do not activate a Langfuse integration.
+With `LANGFUSE_TRACING_ENABLED=true` and valid credentials, Langfuse traces also cover workflow nodes, retrieval, and Nebius generations. Only actual provider usage is captured; model cost requires configured pricing. See `architecture.md` for the opt-in synthetic-content policy and `evals/README.md` for experiment setup.
 
 ## Verification
 
@@ -90,7 +91,8 @@ The tests cover actual LangGraph interruption/resume and full API flows, includi
 duplicate submissions, foreign-owner access, stale approvals, cache invalidation, blocked
 refinement loops, and provider errors. HTTP transport is mocked in provider tests.
 
-The existing evaluation dataset is unchanged. `evals/run_eval.py` calls the public API,
-maps observable fields, and leaves unmeasured semantic criteria unscored. It does not
-approve or submit claims. Adversarial fixture injection is covered in Python tests and
-explicitly marked unscored by the HTTP evaluator. See `evals/README.md`.
+`evals/run_eval.py` calls the public API and leaves unmeasured criteria unscored. Its
+stale-approval probe performs an edit and sends an invalid approval only in fixture mode.
+`evals/fixture_suite.py` runs the 12 scenarios in separate synthetic in-memory fixtures,
+including simulated approvals, and compares draft citations before and after review.
+See `evals/README.md` for the reports and remaining integration limits.

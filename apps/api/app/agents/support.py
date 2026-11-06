@@ -6,6 +6,7 @@ from dataclasses import asdict
 from decimal import Decimal
 from typing import Any
 
+from app.observability.tracing import capture_synthetic_content, observation, sanitize_content
 from app.schemas.agents import (
     ClaimSnapshot,
     CoverageDraft,
@@ -40,20 +41,27 @@ async def retrieve_evidence(
     question: str,
     context: AgentContext,
 ) -> list[Citation]:
-    evidence = list(
-        await context.policies.retrieve_evidence(
-            user_id=context.user_id,
-            policy_id=context.policy_id,
-            question=question,
-            limit=6,
+    with observation("retrieve-evidence", input={"limit": 6}) as span:
+        if capture_synthetic_content():
+            span.update(input=sanitize_content({"question": question, "limit": 6}))
+        evidence = list(
+            await context.policies.retrieve_evidence(
+                user_id=context.user_id,
+                policy_id=context.policy_id,
+                question=question,
+                limit=6,
+            )
         )
-    )
-    for item in evidence:
-        if (item.policy_id, item.policy_version) != (context.policy_id, context.policy_version):
-            raise ValueError("Retrieved evidence belongs to another policy or version")
-        if not item.chunk_id or item.page < 1 or not item.excerpt.strip():
-            raise ValueError("Evidence must contain a chunk ID, page, and excerpt")
-    return evidence
+        for item in evidence:
+            if (item.policy_id, item.policy_version) != (context.policy_id, context.policy_version):
+                raise ValueError("Retrieved evidence belongs to another policy or version")
+            if not item.chunk_id or item.page < 1 or not item.excerpt.strip():
+                raise ValueError("Evidence must contain a chunk ID, page, and excerpt")
+        output = {"chunk_ids": [item.chunk_id for item in evidence], "count": len(evidence)}
+        if capture_synthetic_content():
+            output["passages"] = sanitize_content([asdict(item) for item in evidence])
+        span.update(output=output)
+        return evidence
 
 
 async def policy_evidence(

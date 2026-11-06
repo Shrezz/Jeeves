@@ -3,6 +3,8 @@
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 
+from app.observability.agent_nodes import instrument_node
+
 from .answer_claim import answer_claim
 from .context import AgentContext
 from .file_claim import file_claim
@@ -52,7 +54,7 @@ def build_graph(checkpointer: BaseCheckpointSaver):
         "clarify": clarify,
         "commit_action": commit_action,
     }.items():
-        graph.add_node(name, node)
+        graph.add_node(name, instrument_node(name, node))
     graph.add_edge(START, "begin_request")
     graph.add_edge("begin_request", "router")
     routes = ["answer_claim", "save_claim_status", "file_claim"]

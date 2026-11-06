@@ -10,7 +10,12 @@ from typing import Any
 import httpx
 
 from app.agents.context import Output
-from app.observability.tracing import current_run_id
+from app.observability.tracing import (
+    capture_synthetic_content,
+    current_run_id,
+    observation,
+    sanitize_content,
+)
 
 logger = logging.getLogger("jeeves.models")
 
@@ -28,6 +33,25 @@ class NebiusModel:
 
     async def generate(
         self, *, prompt: str, payload: dict[str, Any], output_type: type[Output]
+    ) -> Output:
+        # Content capture is separately enabled only for synthetic demo inputs.
+        with observation(
+            "model-generation",
+            as_type="generation",
+            model=self.model,
+            metadata={"schema": output_type.__name__},
+        ) as span:
+            if capture_synthetic_content():
+                span.update(input=sanitize_content({"prompt": prompt, "payload": payload}))
+            result = await self._generate(
+                prompt=prompt, payload=payload, output_type=output_type, span=span
+            )
+            if capture_synthetic_content():
+                span.update(output=sanitize_content(result.model_dump(mode="json")))
+            return result
+
+    async def _generate(
+        self, *, prompt: str, payload: dict[str, Any], output_type: type[Output], span: Any
     ) -> Output:
         started = perf_counter()
         body = {
@@ -59,6 +83,22 @@ class NebiusModel:
                 if choice.get("finish_reason") != "stop" or choice["message"].get("refusal"):
                     raise ValueError("Incomplete or refused model response")
                 result = output_type.model_validate_json(choice["message"]["content"])
+                raw_usage = data.get("usage") or {}
+                if not isinstance(raw_usage, dict):
+                    raw_usage = {}
+                usage = {
+                    key: raw_usage[key]
+                    for key in ("prompt_tokens", "completion_tokens", "total_tokens")
+                    if isinstance(raw_usage.get(key), int)
+                    and not isinstance(raw_usage[key], bool)
+                    and raw_usage[key] >= 0
+                }
+                if usage:
+                    span.update(usage_details=usage)
+                span.update(
+                    output={"validated": True},
+                    metadata={"schema": output_type.__name__, "attempts": attempt + 1},
+                )
                 logger.info(
                     json.dumps(
                         {

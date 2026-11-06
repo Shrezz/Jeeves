@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from app.agents.context import AgentContext, Output
 from app.agents.evidence import EvidenceCache
+from app.observability.tracing import capture_synthetic_content, observation, sanitize_content
 from app.schemas.agents import (
     ActionResult,
     ClaimSnapshot,
@@ -162,6 +163,25 @@ class FixtureModel:
     """Deterministic demo script. Its responses are not evidence of model accuracy."""
 
     async def generate(
+        self, *, prompt: str, payload: dict[str, Any], output_type: type[Output]
+    ) -> Output:
+        with observation(
+            "model-generation",
+            as_type="generation",
+            model="synthetic-fixture",
+            metadata={"schema": output_type.__name__, "mode": "fixture"},
+        ) as span:
+            if capture_synthetic_content():
+                span.update(input=sanitize_content({"prompt": prompt, "payload": payload}))
+            result = await self._generate(prompt=prompt, payload=payload, output_type=output_type)
+            span.update(
+                output=sanitize_content(result.model_dump(mode="json"))
+                if capture_synthetic_content()
+                else {"validated": True}
+            )
+            return result
+
+    async def _generate(
         self, *, prompt: str, payload: dict[str, Any], output_type: type[Output]
     ) -> Output:
         message = payload.get("request", {})
