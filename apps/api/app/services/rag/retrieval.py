@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .types import Citation, EmbeddingProvider, PolicyChunkStore
+from ...observability.tracing import observation
 
 
 def retrieve_policy_evidence(
@@ -28,12 +29,14 @@ def retrieve_policy_evidence(
     vectors = embedder.embed([question.strip()])
     if len(vectors) != 1 or not vectors[0]:
         raise ValueError("Embedding provider did not return one query vector")
-    results = store.search(
-        user_id=user_id,
-        policy_id=policy_id,
-        query_embedding=vectors[0],
-        limit=limit,
-    )
+    with observation("policy-retrieval", input={"limit": limit}) as span:
+        results = store.search(
+            user_id=user_id,
+            policy_id=policy_id,
+            query_embedding=vectors[0],
+            limit=limit,
+        )
+        span.update(output={"chunk_ids": [chunk.id for chunk, _ in results], "count": len(results)})
     return [
         Citation(
             chunk_id=chunk.id,
