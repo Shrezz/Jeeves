@@ -84,3 +84,40 @@ def test_policy_retrieval_traces_only_result_count(monkeypatch):
         {"name": "ui-policy-retrieval", "input": {"limit": 3}},
         {"output": {"passage_count": 1}},
     ]
+
+
+def test_ollama_usage_sums_provider_counts_across_retries(monkeypatch):
+    updates = []
+
+    class Span:
+        def update(self, **kw):
+            updates.append(kw)
+
+    @contextmanager
+    def capture(name, **kw):
+        yield Span()
+
+    monkeypatch.setattr("app.services.chat_worker.observation", capture)
+    responses = iter(
+        [
+            {"done": True, "prompt_eval_count": 10, "eval_count": 4, "message": {"content": "{}"}},
+            {
+                "done": True,
+                "prompt_eval_count": 20,
+                "eval_count": 5,
+                "message": {"content": '{"route":"answer_claim","clarification":null}'},
+            },
+        ]
+    )
+
+    async def run():
+        transport = httpx.MockTransport(lambda request: httpx.Response(200, json=next(responses)))
+        async with httpx.AsyncClient(base_url="http://localhost/", transport=transport) as client:
+            return await OllamaModel(client, "test-model").generate(
+                prompt="synthetic", payload={}, output_type=RouteDecision
+            )
+
+    assert asyncio.run(run()).route == "answer_claim"
+    assert {
+        "usage_details": {"prompt_tokens": 30, "completion_tokens": 9, "total_tokens": 39}
+    } in updates

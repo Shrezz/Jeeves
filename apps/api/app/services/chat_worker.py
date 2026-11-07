@@ -28,11 +28,15 @@ class OllamaModel:
             model=self.model,
             metadata={"provider": "ollama", "schema": output_type.__name__},
         ) as span:
-            result = await self._generate(prompt=prompt, payload=payload, output_type=output_type)
+            result = await self._generate(
+                prompt=prompt, payload=payload, output_type=output_type, span=span
+            )
             span.update(output={"validated": True})
             return result
 
-    async def _generate(self, *, prompt: str, payload: dict, output_type: type[Output]) -> Output:
+    async def _generate(
+        self, *, prompt: str, payload: dict, output_type: type[Output], span
+    ) -> Output:
         schema = output_type.model_json_schema()
         # Pydantic accepts Decimal as a number OR arbitrary string. Constrain the
         # provider's grammar so it can't emit formatted currency like "$1,000".
@@ -56,6 +60,8 @@ class OllamaModel:
             {"role": "system", "content": prompt},
             {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
         ]
+        usage = {"prompt_tokens": 0, "completion_tokens": 0}
+        complete_usage = True
         for attempt in range(2):
             response = await self.client.post(
                 "api/chat",
@@ -70,10 +76,22 @@ class OllamaModel:
             )
             response.raise_for_status()
             data = response.json()
+            for field, key in (
+                ("prompt_eval_count", "prompt_tokens"),
+                ("eval_count", "completion_tokens"),
+            ):
+                value = data.get(field)
+                if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+                    usage[key] += value
+                else:
+                    complete_usage = False
             if not data.get("done") or data.get("done_reason") == "length":
                 raise ValueError("Incomplete model response")
             try:
-                return output_type.model_validate_json(data["message"]["content"])
+                result = output_type.model_validate_json(data["message"]["content"])
+                if complete_usage:
+                    span.update(usage_details={**usage, "total_tokens": sum(usage.values())})
+                return result
             except ValidationError as exc:
                 if attempt:
                     raise
