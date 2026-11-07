@@ -48,6 +48,34 @@ def decision(client, run, action="approve", key="decision", **kwargs):
     return client.post(f"/agent/runs/{run['run_id']}/responses", json=body)
 
 
+def test_public_previews_preserve_agent_auth_and_do_not_write(backend):
+    client, store, _ = backend
+    original_claim = store.claims["demo-window"]
+    client.headers.pop("Authorization")
+    preview = client.post(
+        "/workflow/route",
+        json={"message": "The repair is complete", "selected_claim_id": "demo-window"},
+    )
+    assert preview.status_code == 200
+    assert preview.json()["intent"] == "save_claim_status"
+    estimate = client.post("/workflow/estimate", json={"eligible_loss": 150, "deductible": 1000})
+    assert estimate.json() == {"estimated_payment": "0.00", "submitted": "false"}
+    request = {
+        "request_key": "after-preview",
+        "policy_id": "demo-policy",
+        "claim_id": "demo-window",
+        "message": "Is my window covered?",
+    }
+    assert client.post("/agent/runs", json=request).status_code == 401
+    client.headers["Authorization"] = "Bearer test-token"
+    reviewed = client.post("/agent/runs", json=request)
+    assert reviewed.status_code == 200
+    assert reviewed.json()["status"] == "completed"
+    assert reviewed.json()["answer"]
+    assert store.claims["demo-window"] == original_claim
+    assert not store.events and not store.artifacts
+
+
 def test_full_coverage_to_packet_and_download(backend):
     client, store, _ = backend
     answer = start(client, "Is my window covered?")
