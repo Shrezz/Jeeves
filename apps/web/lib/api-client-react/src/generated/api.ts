@@ -32,15 +32,19 @@ import type {
   ClaimInput,
   ClaimMessage,
   ClaimMessageInput,
+  ClaimReviewResponseInput,
   ClaimWorkspace,
   EvidenceUploadInput,
+  GetPolicyDeclarations200,
   HealthStatus,
   InvalidInputResponse,
   NotFoundResponse,
   Policy,
   PolicyDetailsInput,
+  PolicySearchInput,
   PolicyUpload,
   PolicyUploadInput,
+  SearchPolicy200,
   UnauthorizedResponse
 } from './api.schemas';
 
@@ -507,6 +511,91 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getRequestClaimGuidanceMutationOptions(options), queryClient);
+    }
+
+export const getRespondToClaimReviewUrl = (id: string,
+    runId: string,) => {
+
+
+
+
+  return `/api/claims/${id}/guidance/${runId}/respond`
+}
+
+export const respondToClaimReview = async (id: string,
+    runId: string,
+    claimReviewResponseInput: ClaimReviewResponseInput, options?: Parameters<typeof customFetch>[1]): Promise<ClaimGuidance> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ClaimGuidance>(getRespondToClaimReviewUrl(id,runId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(claimReviewResponseInput)
+  }
+);}
+
+
+
+
+
+export const getRespondToClaimReviewMutationKey = () => ['respondToClaimReview'] as const;
+
+export const getRespondToClaimReviewMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondToClaimReview>>, TError,RespondToClaimReviewMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof respondToClaimReview>>, TError,RespondToClaimReviewMutationVariables, TContext> => {
+
+const mutationKey = getRespondToClaimReviewMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof respondToClaimReview>>, RespondToClaimReviewMutationVariables> = (props) => {
+          const {id,runId,data} = props ?? {};
+
+          return  respondToClaimReview(id,runId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RespondToClaimReviewMutationResult = NonNullable<Awaited<ReturnType<typeof respondToClaimReview>>>
+    export type RespondToClaimReviewMutationBody = BodyType<ClaimReviewResponseInput>
+    export type RespondToClaimReviewMutationError = ErrorType<void>
+    export type RespondToClaimReviewMutationVariables = {id: string;runId: string;data: BodyType<ClaimReviewResponseInput>}
+
+    export const useRespondToClaimReview = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondToClaimReview>>, TError,RespondToClaimReviewMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof respondToClaimReview>>,
+        TError,
+        RespondToClaimReviewMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRespondToClaimReviewMutationOptions(options), queryClient);
     }
 
 export const getInitiateClaimEvidenceUrl = (id: string,) => {
@@ -1041,6 +1130,270 @@ export const useCompletePolicyUpload = <TError = ErrorType<InvalidInputResponse 
         TContext
       > => {
       return useMutation(getCompletePolicyUploadMutationOptions(options), queryClient);
+    }
+
+export const getGetPolicyDeclarationsUrl = (id: string,) => {
+
+
+
+
+  return `/api/policies/${id}/declarations`
+}
+
+/**
+ * @summary Read labelled declarations from the signed-in user's saved local PDF
+ */
+export const getPolicyDeclarations = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<GetPolicyDeclarations200> => {
+
+  return customFetch<GetPolicyDeclarations200>(getGetPolicyDeclarationsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPolicyDeclarationsQueryKey = (id: string,) => {
+    return [
+    `/api/policies/${id}/declarations`
+    ] as const;
+    }
+
+
+export const getGetPolicyDeclarationsQueryOptions = <TData = Awaited<ReturnType<typeof getPolicyDeclarations>>, TError = ErrorType<UnauthorizedResponse | NotFoundResponse>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPolicyDeclarations>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPolicyDeclarationsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPolicyDeclarations>>> = ({ signal }) => getPolicyDeclarations(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPolicyDeclarations>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetPolicyDeclarationsQueryResult = NonNullable<Awaited<ReturnType<typeof getPolicyDeclarations>>>
+export type GetPolicyDeclarationsQueryError = ErrorType<UnauthorizedResponse | NotFoundResponse>
+
+
+export function useGetPolicyDeclarations<TData = Awaited<ReturnType<typeof getPolicyDeclarations>>, TError = ErrorType<UnauthorizedResponse | NotFoundResponse>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPolicyDeclarations>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPolicyDeclarations>>,
+          TError,
+          Awaited<ReturnType<typeof getPolicyDeclarations>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPolicyDeclarations<TData = Awaited<ReturnType<typeof getPolicyDeclarations>>, TError = ErrorType<UnauthorizedResponse | NotFoundResponse>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPolicyDeclarations>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPolicyDeclarations>>,
+          TError,
+          Awaited<ReturnType<typeof getPolicyDeclarations>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPolicyDeclarations<TData = Awaited<ReturnType<typeof getPolicyDeclarations>>, TError = ErrorType<UnauthorizedResponse | NotFoundResponse>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPolicyDeclarations>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Read labelled declarations from the signed-in user's saved local PDF
+ */
+
+export function useGetPolicyDeclarations<TData = Awaited<ReturnType<typeof getPolicyDeclarations>>, TError = ErrorType<UnauthorizedResponse | NotFoundResponse>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPolicyDeclarations>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetPolicyDeclarationsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSearchPolicyUrl = (id: string,) => {
+
+
+
+
+  return `/api/policies/${id}/search`
+}
+
+/**
+ * @summary Find passages in a saved, indexed policy belonging to the signed-in user
+ */
+export const searchPolicy = async (id: string,
+    policySearchInput: PolicySearchInput, options?: Parameters<typeof customFetch>[1]): Promise<SearchPolicy200> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<SearchPolicy200>(getSearchPolicyUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(policySearchInput)
+  }
+);}
+
+
+
+
+
+export const getSearchPolicyMutationKey = () => ['searchPolicy'] as const;
+
+export const getSearchPolicyMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof searchPolicy>>, TError,SearchPolicyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof searchPolicy>>, TError,SearchPolicyMutationVariables, TContext> => {
+
+const mutationKey = getSearchPolicyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof searchPolicy>>, SearchPolicyMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  searchPolicy(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SearchPolicyMutationResult = NonNullable<Awaited<ReturnType<typeof searchPolicy>>>
+    export type SearchPolicyMutationBody = BodyType<PolicySearchInput>
+    export type SearchPolicyMutationError = ErrorType<void>
+    export type SearchPolicyMutationVariables = {id: string;data: BodyType<PolicySearchInput>}
+
+    /**
+ * @summary Find passages in a saved, indexed policy belonging to the signed-in user
+ */
+export const useSearchPolicy = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof searchPolicy>>, TError,SearchPolicyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof searchPolicy>>,
+        TError,
+        SearchPolicyMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSearchPolicyMutationOptions(options), queryClient);
+    }
+
+export const getRetryPolicyIndexUrl = (id: string,) => {
+
+
+
+
+  return `/api/policies/${id}/index`
+}
+
+/**
+ * @summary Retry local indexing without uploading the original again
+ */
+export const retryPolicyIndex = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<Policy> => {
+
+  return customFetch<Policy>(getRetryPolicyIndexUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRetryPolicyIndexMutationKey = () => ['retryPolicyIndex'] as const;
+
+export const getRetryPolicyIndexMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryPolicyIndex>>, TError,RetryPolicyIndexMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof retryPolicyIndex>>, TError,RetryPolicyIndexMutationVariables, TContext> => {
+
+const mutationKey = getRetryPolicyIndexMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof retryPolicyIndex>>, RetryPolicyIndexMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  retryPolicyIndex(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RetryPolicyIndexMutationResult = NonNullable<Awaited<ReturnType<typeof retryPolicyIndex>>>
+
+    export type RetryPolicyIndexMutationError = ErrorType<unknown>
+    export type RetryPolicyIndexMutationVariables = {id: string}
+
+    /**
+ * @summary Retry local indexing without uploading the original again
+ */
+export const useRetryPolicyIndex = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryPolicyIndex>>, TError,RetryPolicyIndexMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof retryPolicyIndex>>,
+        TError,
+        RetryPolicyIndexMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRetryPolicyIndexMutationOptions(options), queryClient);
     }
 
 export const getDownloadPolicyDocumentUrl = (id: string,) => {

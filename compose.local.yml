@@ -1,0 +1,21 @@
+name: jeeves-local
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: jeeves_local
+      POSTGRES_USER: jeeves
+      POSTGRES_PASSWORD: jeeves-local-only
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - local_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jeeves -d jeeves_local"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  local_postgres:

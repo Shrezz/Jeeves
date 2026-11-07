@@ -8,18 +8,11 @@ from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
+from app.schemas.domain import ClaimStatus, InsurerOutcome, ManualClaimStatus, RepairStatus
+
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 Money = Annotated[Decimal, Field(ge=0, allow_inf_nan=False, decimal_places=2)]
 Route = Literal["answer_claim", "save_claim_status", "file_claim"]
-ClaimStatus = Literal[
-    "open",
-    "repair_scheduled",
-    "repaired",
-    "user_reported_submitted",
-    "user_reported_approved",
-    "user_reported_denied",
-    "resolved",
-]
 
 
 class Contract(BaseModel):
@@ -48,6 +41,7 @@ class IncidentFacts(Contract):
     cause: Text | None = None
     occurred_on: date | None = None
     repair_cost: Money | None = None
+    repair_status: RepairStatus | None = None
 
 
 class ClaimSnapshot(Contract):
@@ -57,7 +51,9 @@ class ClaimSnapshot(Contract):
     policy_version: Text
     version: int = Field(ge=1)
     facts: IncidentFacts
-    status: ClaimStatus = "open"
+    status: ClaimStatus = "draft"
+    insurer_outcome: InsurerOutcome = "unknown"
+    insurer_outcome_source: Literal["user_reported"] | None = None
     notes: list[Text] = Field(default_factory=list)
     attachment_ids: list[Text] = Field(default_factory=list)
 
@@ -75,9 +71,16 @@ class CoverageDraft(Contract):
 
 class StatusDraft(Contract):
     note: Text
-    status: ClaimStatus | None = None
+    status: ManualClaimStatus | None = None
+    insurer_outcome: InsurerOutcome | None = None
     facts: IncidentFacts = Field(default_factory=IncidentFacts)
     missing_information: list[Text] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def outcome_requires_reported_decision(self) -> Self:
+        if self.insurer_outcome is not None and self.status != "insurer_decision_received":
+            raise ValueError("An insurer outcome requires a user-reported decision status")
+        return self
 
 
 class PacketDraft(Contract):

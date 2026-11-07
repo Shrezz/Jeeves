@@ -127,10 +127,11 @@ router.post("/claims/:id/messages", async (req, res): Promise<void> => {
       ...(claim.title === "New claim" && input.kind === "ask" && content ? { title: content.replace(/\s+/g, " ").slice(0, 100) } : {}),
       latestUpdate: content || (expense !== null ? "Expense recorded." : "Evidence attached."),
       updatedAt: new Date(),
+      ...(input.kind === "status_update" && input.status === "insurer_decision_received" ? { insurerOutcomeSource: "user_reported" as const } : {}),
       totalExpenses: sql`${claimsTable.totalExpenses} + ${expense ?? "0"}::numeric`,
       status: input.kind === "status_update" ? input.status!
-        : input.kind === "preparation_request" ? "Preparation requested"
-        : claim.status === "Draft" ? "Gathering evidence" : claim.status,
+        : input.kind === "preparation_request" ? "preparation_requested"
+        : claim.status === "draft" ? "gathering_evidence" : claim.status,
     }).where(eq(claimsTable.id, claim.id));
     return serializeMessage(message, evidence.map((e) => ({ ...e, messageId: message.id })));
   });

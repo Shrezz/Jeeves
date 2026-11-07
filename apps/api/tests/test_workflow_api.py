@@ -60,6 +60,7 @@ def test_full_coverage_to_packet_and_download(backend):
     assert not store.artifacts and store.claims["demo-window"].version == 1
     completed = decision(client, packet).json()
     assert completed["action_result"]["outcome"] == "prepared"
+    assert store.claims["demo-window"].status == "prepared"
     artifact = client.get("/artifacts/" + completed["action_result"]["artifact_id"])
     assert artifact.status_code == 200
     assert "Not submitted" in artifact.text

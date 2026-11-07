@@ -72,3 +72,4 @@ class AgentContext:
     template: ClaimTemplate = field(default_factory=ClaimTemplate)
     evidence_cache: EvidenceCache = field(default_factory=EvidenceCache)
     actions: ApprovedActions | None = None
+    prior_coverage: dict[str, Any] | None = None

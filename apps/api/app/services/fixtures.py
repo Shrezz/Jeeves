@@ -115,7 +115,13 @@ class FixtureStore:
                 changes.update(
                     status=proposal.status or current.status, notes=current.notes + [proposal.note]
                 )
+                if proposal.insurer_outcome is not None:
+                    changes.update(
+                        insurer_outcome=proposal.insurer_outcome,
+                        insurer_outcome_source="user_reported",
+                    )
             else:
+                changes["status"] = "prepared"
                 artifact_id = str(uuid4())
                 fields = "".join(
                     f"<dt>{html.escape(k)}</dt><dd>{html.escape(str(v))}</dd>"
@@ -221,8 +227,20 @@ class FixtureModel:
         if output_type is StatusDraft:
             return StatusDraft(
                 note=message,
-                status="resolved" if "resolv" in lower else "repaired" if amounts else None,
-                facts=IncidentFacts(repair_cost=facts.repair_cost) if amounts else IncidentFacts(),
+                status="resolved_without_filing"
+                if "resolv" in lower and "without filing" in lower
+                else None,
+                facts=IncidentFacts(
+                    repair_cost=facts.repair_cost if amounts else None,
+                    repair_status="completed"
+                    if "repaired" in lower or "repair is complete" in lower
+                    else None,
+                ),
+                missing_information=[
+                    "Was this resolved without filing, or did you file with the insurer?"
+                ]
+                if "resolv" in lower and "without filing" not in lower
+                else [],
             )
         evidence = payload.get("evidence", [])
         unknown = facts.cause is None or not evidence

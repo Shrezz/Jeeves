@@ -22,3 +22,4 @@ export * from "./claims";
 export * from "./claim-messages";
 export * from "./claim-evidence";
 export * from "./claim-guidance";
+export * from "./users";

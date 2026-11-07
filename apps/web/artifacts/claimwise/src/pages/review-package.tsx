@@ -1,3 +1,5 @@
+import { WorkflowReview } from '@/components/workflow-review';
+import { claimStatusLabel } from "@workspace/domain";
 import { useEffect, useState } from 'react';
 import { Link } from 'wouter';
 import {
@@ -31,15 +33,15 @@ function dateLabel(value: string | null | undefined) {
 }
 
 function claimTone(status: string): 'ok' | 'pending' | 'neutral' {
-  if (status === 'Resolved without filing' || status === 'Insurer decision received') return 'ok';
-  if (status === 'Preparation requested' || status === 'Package prepared' || status === 'Filed by me with insurer') return 'pending';
+  if (status === 'resolved_without_filing' || status === 'insurer_decision_received') return 'ok';
+  if (status === 'preparation_requested' || status === 'prepared' || status === 'filed_by_user') return 'pending';
   return 'neutral';
 }
 
 function ReviewHeader({
-  claim,
+  claim, awaitingReview,
 }: {
-  claim: Claim | null;
+  claim: Claim | null; awaitingReview: boolean;
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-card/60 px-5 py-4 sm:px-10">
@@ -59,7 +61,7 @@ function ReviewHeader({
           </h1>
         </div>
       </div>
-      {claim && <Status tone={claimTone(claim.status)} testId="status-current">Status: {claim.status}</Status>}
+      {claim && <Status tone={claimTone(claim.status)} testId="status-current">{awaitingReview ? "Awaiting your review" : "Claim: " + claimStatusLabel(claim.status)}</Status>}
     </div>
   );
 }
@@ -262,7 +264,8 @@ function ReviewPanels({
 }
 
 export default function ReviewPackagePage() {
-  const [selectedClaimId, setSelectedClaimId] = useState('');
+  const [selectedClaimId, setSelectedClaimId] = useState(() => new URLSearchParams(window.location.search).get('claim') || '');
+  const [selectedRun, setSelectedRun] = useState(() => new URLSearchParams(window.location.search).get('run'));
   const claimsQuery = useListClaims({
     query: {
       queryKey: getListClaimsQueryKey(),
@@ -282,6 +285,8 @@ export default function ReviewPackagePage() {
     },
   });
   const workspace = claimQuery.data?.claim.id === claimId ? claimQuery.data : undefined;
+  const reviews = workspace?.guidance.filter(g => g.workflow && (g.workflow.route !== 'answer_claim' || g.workflow.phase === 'needs_information')) ?? [];
+  const currentReview = selectedRun ? reviews.find(g => g.id === selectedRun) : reviews.at(-1);
   const isClaimLoading = !!claimId && (claimQuery.isLoading || (!workspace && claimQuery.isFetching));
   const listLoading = claimsQuery.isLoading;
   const listFailed = claimsQuery.isError && (!claimsQuery.data || claimsQuery.data.length === 0);
@@ -292,12 +297,12 @@ export default function ReviewPackagePage() {
 
   return (
     <div>
-      <ReviewHeader claim={selectedClaim ?? null} />
+      <ReviewHeader claim={selectedClaim ?? null} awaitingReview={currentReview?.workflow?.phase === "human_review"} />
       <div className="mx-auto max-w-6xl space-y-4 px-5 pt-5 sm:px-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Claim preparation</p>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">A read-only view of information saved to your account. No package has been prepared.</p>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">Check the incident details, policy evidence, and any packet awaiting your decision.</p>
           </div>
           {claims.length > 0 && (
             <label className="flex w-full flex-col gap-1.5 text-xs font-semibold text-muted-foreground sm:w-auto">
@@ -306,7 +311,7 @@ export default function ReviewPackagePage() {
                 aria-label="Select a saved claim"
                 className={cx(inputCls, 'min-h-10 w-full sm:min-w-64')}
                 value={claimId}
-                onChange={(event) => setSelectedClaimId(event.target.value)}
+                onChange={(event) => {setSelectedRun(null); setSelectedClaimId(event.target.value);}}
                 data-testid="select-review-claim"
               >
                 {claims.map((claim) => <option key={claim.id} value={claim.id}>{claim.title}</option>)}
@@ -349,7 +354,9 @@ export default function ReviewPackagePage() {
             <div className="space-y-3"><div className="flex flex-wrap gap-2"><Btn variant="outline" disabled aria-disabled="true">Edit</Btn><Btn variant="ghost" disabled aria-disabled="true">Resolve without filing</Btn><Btn className="ml-auto" disabled aria-disabled="true"><ClipboardCheck className="h-4 w-4" aria-hidden /> Approve &amp; prepare</Btn></div><p className="text-xs text-muted-foreground">Actions become available only when supported by the product.</p><Link href="/workspace/claim" data-testid="link-start-claim" className="inline-flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"><FileText className="h-4 w-4" aria-hidden /> Start a claim</Link></div>
           </div>
         </div>
-      ) : (
+      ) : currentReview && workspace ? (
+        <WorkflowReview key={currentReview.id+':'+currentReview.workflow?.interruptId} guide={currentReview} workspace={workspace}/>
+      ) : selectedRun && workspace ? <p role="status" className="p-6">This review is unavailable for the selected claim.</p> : (
         <ReviewPanels
           key={claimId}
           workspace={workspace}

@@ -82,7 +82,7 @@ router.post("/claims/:id/evidence/:evidenceId/complete", async (req, res): Promi
         }
         await tx.update(claimsTable).set({
           latestUpdate: `Evidence added: ${evidence.fileName}`, updatedAt: new Date(),
-          status: claim.status === "Draft" ? "Gathering evidence" : claim.status,
+          status: claim.status === "draft" ? "gathering_evidence" : claim.status,
         }).where(eq(claimsTable.id, claim.id));
         return { saved, used: true };
       });

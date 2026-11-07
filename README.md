@@ -11,8 +11,13 @@ MVP workspace for a synthetic homeowners insurance claim assistant.
 - `data/fixtures/` — fictional demo policy materials only.
 - `docs/` — architecture and team contracts.
 
-The backend now includes an executable agent workflow and UI-facing API. Login, UI,
-real policy indexing, and database adapters remain separate integrations.
+The backend includes an executable agent workflow and UI-facing API. The separate
+web app includes Clerk login and persisted UI data. Their shared identity/status
+contract is implemented; local policy uploads are indexed and searchable. Agent database and RAG adapters
+are still separate integration steps. See [identity and status mapping](docs/identity-status-mapping.md).
+
+To run the UI with Clerk login and the shared PostgreSQL schema, see
+[local development](docs/local-development.md).
 
 ## RAG core
 

@@ -1,0 +1,18 @@
+{
+  "identity": {"provider": "clerk", "subject_prefix": "user_", "owner_column": "owner_id"},
+  "claim_status": {
+    "draft": "Draft",
+    "gathering_evidence": "Gathering evidence",
+    "preparation_requested": "Preparation requested",
+    "prepared": "Package prepared",
+    "filed_by_user": "Filed by me with insurer",
+    "insurer_decision_received": "Insurer decision received",
+    "resolved_without_filing": "Resolved without filing"
+  },
+  "manual_claim_status": ["draft", "gathering_evidence", "filed_by_user", "insurer_decision_received", "resolved_without_filing"],
+  "repair_status": ["unknown", "scheduled", "completed"],
+  "insurer_outcome": ["unknown", "approved", "partially_approved", "denied"],
+  "run_status": ["running", "awaiting_information", "awaiting_review", "completed", "blocked", "rejected", "failed"],
+  "upload_status": ["pending", "saved"],
+  "ingestion_status": ["not_started", "processing", "ready", "failed"]
+}

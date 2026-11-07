@@ -127,7 +127,10 @@ def main() -> int:
               "no pending migrations were committed. Check database access/schema conflicts.", file=sys.stderr)
         return 1
     print("Applied: " + ", ".join(names) if names else "No pending migrations; stored checksums match.")
-    print("Next validate the live schema: python -m app.db.verify")
+    if args.directory.resolve() == DEFAULT_DIRECTORY.resolve():
+        print("Next validate the prototype schema: python -m app.db.verify")
+    else:
+        print("Use the checks for the selected schema; app.db.verify only supports the prototype schema.")
     return 0
 
 

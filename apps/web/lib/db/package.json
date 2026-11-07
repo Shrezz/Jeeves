@@ -15,7 +15,8 @@
     "drizzle-orm": "catalog:",
     "drizzle-zod": "^0.8.3",
     "pg": "^8.23.1",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@workspace/domain": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

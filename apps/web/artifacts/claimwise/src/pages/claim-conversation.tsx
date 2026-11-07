@@ -1,3 +1,5 @@
+import { Link } from 'wouter';
+import { GUIDANCE_LEASE_MS, claimStatusLabel } from "@workspace/domain";
 import { FileText, Image, LoaderCircle, Video } from 'lucide-react';
 import type { ClaimEvidence, ClaimGuidance, ClaimMessage } from '@workspace/api-client-react';
 
@@ -49,14 +51,21 @@ function GuidanceCard({
   const pending = active || guidance?.state === 'pending';
   const failed = requestError || guidance?.state === 'error' || (guidance?.state === 'ready' && !guidance.content);
   if (active || (pending && !expired)) {
-    return <div role="status" aria-live="polite" className="mt-3 flex items-center gap-2 rounded-xl border border-primary/20 bg-secondary/70 px-4 py-3 text-sm text-secondary-foreground"><LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> Thinking through your notes…</div>;
+    return <div role="status" aria-live="polite" className="mt-3 flex items-center gap-2 rounded-xl border border-primary/20 bg-secondary/70 px-4 py-3 text-sm text-secondary-foreground"><LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> Preparing your answer…</div>;
   }
   if (failed || (guidance?.state === 'pending' && expired)) {
     const stale = guidance?.state === 'pending' && expired;
     return <div role="status" aria-live="polite" className="mt-3 rounded-xl border border-[hsl(38_70%_65%)] bg-accent/60 p-4"><p className="text-sm font-semibold">{stale ? 'Guidance is taking longer than expected.' : 'Your message is saved; guidance is unavailable.'}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Retry guidance without resending your message or expense.</p><button type="button" data-testid={`button-retry-guidance-${messageId}`} onClick={onRetry} className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-lg border border-input bg-card px-3 text-sm font-semibold hover:border-primary hover:text-primary">Retry guidance</button></div>;
   }
   if (guidance?.state === 'ready' && guidance.content) {
-    return <article role="status" aria-live="polite" className="mt-3 rounded-2xl rounded-bl-md border border-[hsl(200_24%_82%)] bg-[hsl(200_35%_96%)] px-4 py-3 text-sm leading-6"><p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-primary">Claimwise AI guidance · {formattedTime(guidance.updatedAt)}</p><p className="whitespace-pre-wrap">{guidance.content}</p></article>;
+    return <article role="status" aria-live="polite" className="mt-3 rounded-2xl rounded-bl-md border border-[hsl(200_24%_82%)] bg-[hsl(200_35%_96%)] px-4 py-3 text-sm leading-6"><p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-primary">Claimwise AI guidance · {formattedTime(guidance.updatedAt)}</p><div className="space-y-2">{guidance.content.split(/\n+/).filter(Boolean).map((paragraph, i) => <p key={i}>{paragraph}</p>)}</div>
+      {guidance.workflow && ['human_review','needs_information','completed','rejected'].includes(guidance.workflow.phase) && <Link
+        href={'/workspace/review?claim='+encodeURIComponent(guidance.claimId)+'&run='+encodeURIComponent(guidance.id)}
+        className="mt-3 inline-flex rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">{guidance.workflow.phase === 'needs_information' ? 'Provide missing details' : guidance.workflow.route === 'file_claim' ? 'Review claim packet' : 'Review proposed update'}</Link>}
+      {guidance.sources.length > 0 && <details className="mt-3 border-t border-primary/20 pt-2 text-xs leading-5">
+        <summary className="cursor-pointer font-semibold text-primary">Policy evidence · {Array.from(new Set(guidance.sources.map(s => s.page))).sort((a, b) => a - b).map(p => 'p. ' + p).join(', ')}</summary>
+        <ul className="mt-2 space-y-2">{guidance.sources.map((s, i) => <li key={i} className="border-l-2 border-primary/40 pl-3"><p className="font-semibold">Page {s.page}{s.section && ' · ' + s.section}</p><blockquote>“{s.excerpt}”</blockquote></li>)}</ul>
+      </details>}</article>;
   }
   return <div className="mt-3 rounded-xl border border-dashed border-primary/25 bg-[hsl(176_30%_96%)] px-4 py-3"><p className="text-sm font-semibold">Guidance hasn’t started for this message.</p><button type="button" data-testid={`button-get-guidance-${messageId}`} onClick={onRetry} className="mt-2 inline-flex min-h-9 items-center gap-2 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90">Get guidance</button></div>;
 }
@@ -95,18 +104,18 @@ export function ClaimConversation({
           .map((id) => evidenceById.get(id)).filter((file): file is ClaimEvidence => !!file);
         const response = guidance.find((reply) => reply.messageId === item.id);
         const pendingMs = response?.state === 'pending' ? Math.max(0, now - new Date(response.updatedAt).getTime()) : 0;
-        const expired = response?.state === 'pending' && pendingMs > 120_000;
+        const expired = response?.state === 'pending' && pendingMs > GUIDANCE_LEASE_MS;
         const isActive = activeGuidanceId === item.id;
         return (
           <li key={item.id} className="flex flex-col items-end">
             <article className="max-w-[94%] rounded-2xl rounded-br-md bg-primary px-4 py-3 text-sm leading-relaxed text-primary-foreground sm:max-w-[82%]">
               <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-primary-foreground/70">You · {formattedTime(item.createdAt)}</p>
               {item.content && <p className="whitespace-pre-wrap">{item.content}</p>}
-              {item.status && <p className="mt-2 rounded-lg bg-primary-foreground/10 px-2.5 py-1.5 text-xs font-semibold">Status recorded: {item.status}</p>}
+              {item.status && <p className="mt-2 rounded-lg bg-primary-foreground/10 px-2.5 py-1.5 text-xs font-semibold">Status recorded: {claimStatusLabel(item.status)}</p>}
               {item.expense !== null && <p className="mt-2 text-xs font-semibold">Expense recorded: {new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(item.expense)}</p>}
               {attached.length > 0 && <ul aria-label="Evidence attached to this message" className="mt-3 space-y-2">{attached.map((file) => <Attachment key={file.id} evidence={file} />)}</ul>}
             </article>
-            {item.kind === 'ask' && <div className="w-full max-w-[94%] sm:max-w-[82%]"><GuidanceCard messageId={item.id} guidance={response} active={isActive} expired={!!expired} requestError={!!guidanceErrors[item.id]} onRetry={() => onRequestGuidance(item.id)} /></div>}
+            {(item.kind === 'ask' || (item.kind === 'preparation_request' && import.meta.env.VITE_LOCAL_POLICY_SEARCH)) && <div className="w-full max-w-[94%] sm:max-w-[82%]"><GuidanceCard messageId={item.id} guidance={response} active={isActive} expired={!!expired} requestError={!!guidanceErrors[item.id]} onRetry={() => onRequestGuidance(item.id)} /></div>}
           </li>
         );
       })}

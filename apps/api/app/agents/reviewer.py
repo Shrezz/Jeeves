@@ -46,9 +46,18 @@ async def reviewer(state: AgentState, runtime: Runtime[AgentContext]) -> AgentSt
         verdict = ReviewVerdict(outcome="revise", issues=issues)
     else:
         payload = model_payload(state, claim, evidence)
+        if isinstance(draft, PacketDraft) and context.prior_coverage:
+            payload["previous_reviewed_coverage"] = context.prior_coverage
         payload["draft"] = draft.model_dump(mode="json")
         payload["template"] = context.template.model_dump(mode="json")
-        estimate = calculate_estimate(assessment) if assessment else None
+        # Review a conditional estimate alongside the generator's proposed questions.
+        # It may be published only if the reviewer deems the packet fit for human review.
+        basis = (
+            assessment.model_copy(update={"missing_information": []})
+            if isinstance(draft, PacketDraft)
+            else assessment
+        )
+        estimate = calculate_estimate(basis) if basis else None
         payload["calculated_estimate"] = estimate.model_dump(mode="json") if estimate else None
         verdict = await context.reviewer.generate(
             prompt=REVIEW + checklist,
@@ -125,4 +134,8 @@ async def reviewer(state: AgentState, runtime: Runtime[AgentContext]) -> AgentSt
         )
     else:
         update["phase"] = "human_review"
+        if isinstance(draft, PacketDraft):
+            update["estimate"] = calculate_estimate(
+                draft.coverage.model_copy(update={"missing_information": []})
+            )
     return update

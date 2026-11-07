@@ -55,7 +55,7 @@ def test_human_pause_and_resume(action, phase):
 
     result = asyncio.run(scenario())
     assert result["phase"] == phase
-    assert context.claims.claim.status == "open"
+    assert context.claims.claim.status == "draft"
     assert not context.generator.calls and not context.reviewer.calls
 
 

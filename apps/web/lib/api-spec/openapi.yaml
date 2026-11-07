@@ -85,6 +85,24 @@ paths:
               schema: { $ref: "#/components/schemas/ClaimGuidance" }
         "400": { $ref: "#/components/responses/InvalidInput" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /claims/{id}/guidance/{runId}/respond:
+    post:
+      operationId: respondToClaimReview
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+        - { name: runId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClaimReviewResponseInput" }
+      responses:
+        "200":
+          description: Current owner-reviewed workflow
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClaimGuidance" }
+        "409": { description: Review changed; reload the claim }
   /claims/{id}/evidence/uploads:
     post:
       operationId: initiateClaimEvidence
@@ -193,6 +211,62 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+  /policies/{id}/declarations:
+    get:
+      operationId: getPolicyDeclarations
+      summary: Read labelled declarations from the signed-in user's saved local PDF
+      parameters:
+        - $ref: "#/components/parameters/PolicyId"
+      responses:
+        "200":
+          description: Document wording and PDF page numbers; empty if no supported labels were read
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [fields]
+                properties:
+                  fields:
+                    type: array
+                    items: { $ref: "#/components/schemas/PolicyDeclaration" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /policies/{id}/search:
+    post:
+      operationId: searchPolicy
+      summary: Find passages in a saved, indexed policy belonging to the signed-in user
+      parameters:
+        - $ref: "#/components/parameters/PolicyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PolicySearchInput" }
+      responses:
+        "200":
+          description: Ranked excerpts with PDF page citations
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [passages]
+                properties:
+                  passages:
+                    type: array
+                    items: { $ref: "#/components/schemas/PolicyPassage" }
+        "409": { description: Index not ready }
+  /policies/{id}/index:
+    post:
+      operationId: retryPolicyIndex
+      summary: Retry local indexing without uploading the original again
+      parameters:
+        - $ref: "#/components/parameters/PolicyId"
+      responses:
+        "200":
+          description: Current policy and indexing result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Policy" }
   /policies/{id}/document:
     get:
       operationId: downloadPolicyDocument
@@ -265,7 +339,10 @@ components:
   schemas:
     ClaimStatus:
       type: string
-      enum: [Draft, Gathering evidence, Preparation requested, Package prepared, Filed by me with insurer, Insurer decision received, Resolved without filing]
+      enum: [draft, gathering_evidence, preparation_requested, prepared, filed_by_user, insurer_decision_received, resolved_without_filing]
+    ManualClaimStatus:
+      type: string
+      enum: [draft, gathering_evidence, filed_by_user, insurer_decision_received, resolved_without_filing]
     ClaimInput:
       type: object
       required: [id, title]
@@ -293,7 +370,7 @@ components:
         content: { type: string, maxLength: 12000 }
         kind: { type: string, enum: [ask, preparation_request, status_update] }
         expense: { type: ["number", "null"], minimum: 0, maximum: 100000000 }
-        status: { $ref: "#/components/schemas/ClaimStatus" }
+        status: { $ref: "#/components/schemas/ManualClaimStatus" }
         attachmentIds:
           type: array
           maxItems: 10
@@ -325,14 +402,42 @@ components:
       required: [messageId]
       properties:
         messageId: { type: string, format: uuid }
+    ClaimReviewResponseInput:
+      type: object
+      required: [interruptId, version, action]
+      properties:
+        interruptId: { type: string, minLength: 1, maxLength: 128 }
+        version: { type: integer, minimum: 0 }
+        action: { type: string, enum: [approve, edit, reject, clarify] }
+        feedback: { type: string, minLength: 1, maxLength: 2500 }
+    WorkflowField:
+      type: object
+      required: [label, value]
+      properties:
+        label: { type: string }
+        value: { type: string }
+    ClaimWorkflow:
+      type: object
+      required: [route, phase, version, fields]
+      properties:
+        route: { type: string, enum: [answer_claim, file_claim, save_claim_status, clarify] }
+        phase: { type: string, enum: [answer_ready, human_review, needs_information, blocked, completed, rejected] }
+        interruptId: { type: string }
+        version: { type: integer }
+        narrative: { type: string }
+        fields: { type: array, items: { $ref: "#/components/schemas/WorkflowField" } }
     ClaimGuidance:
       type: object
-      required: [id, claimId, messageId, content, state, createdAt, updatedAt]
+      required: [id, claimId, messageId, content, sources, state, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         claimId: { type: string, format: uuid }
         messageId: { type: string, format: uuid }
         content: { type: ["string", "null"] }
+        workflow: { $ref: "#/components/schemas/ClaimWorkflow" }
+        sources:
+          type: array
+          items: { $ref: "#/components/schemas/PolicyPassage" }
         state: { type: string, enum: [pending, ready, error] }
         createdAt: { type: string }
         updatedAt: { type: string }
@@ -401,6 +506,29 @@ components:
         status: { type: string, enum: [saved] }
         createdAt: { type: string }
         documentUrl: { type: string }
+        ingestionStatus: { type: string, enum: [not_started, processing, ready, failed] }
+        indexedChunks: { type: integer, minimum: 0 }
+    PolicyDeclaration:
+      type: object
+      required: [kind, label, value, page]
+      properties:
+        kind: { type: string }
+        label: { type: string }
+        value: { type: string }
+        page: { type: integer, minimum: 1 }
+    PolicySearchInput:
+      type: object
+      required: [question]
+      properties:
+        question: { type: string, minLength: 1, maxLength: 800 }
+    PolicyPassage:
+      type: object
+      required: [chunkId, page, section, excerpt]
+      properties:
+        chunkId: { type: string }
+        page: { type: integer, minimum: 1 }
+        section: { type: string }
+        excerpt: { type: string }
     HealthStatus:
       type: object
       properties:

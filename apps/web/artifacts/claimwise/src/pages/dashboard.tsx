@@ -1,3 +1,6 @@
+import { PolicySearch } from '@/components/policy-search';
+import { PolicyDeclarations } from '@/components/policy-declarations';
+import { claimStatusLabel } from "@workspace/domain";
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import { getListClaimsQueryKey, getListPoliciesQueryKey, useListClaims, useListPolicies } from '@workspace/api-client-react';
@@ -25,14 +28,6 @@ function formatBytes(bytes: number) {
   return bytes < 1024 * 1024
     ? `${Math.max(1, Math.round(bytes / 1024))} KB`
     : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  }).format(amount);
 }
 
 function PolicyFileLink({ policy }: { policy: Policy }) {
@@ -115,10 +110,6 @@ function PolicySummary({
               </div>
             </div>
             <dl className="mt-5 divide-y divide-dashed divide-border text-sm">
-              <div className="flex items-start justify-between gap-4 py-3 first:pt-0">
-                <dt className="text-muted-foreground">Deductible</dt>
-                <dd data-testid={`text-policy-deductible-${selected.id}`} className="text-right font-semibold tabular-nums">{selected.deductible !== null ? formatCurrency(selected.deductible) : 'Not provided'}</dd>
-              </div>
               <div className="py-3">
                 <dt className="text-muted-foreground">Original file</dt>
                 <dd data-testid={`text-policy-file-${selected.id}`} className="mt-1 break-all font-medium">{selected.fileName}</dd>
@@ -128,9 +119,11 @@ function PolicySummary({
                 <dd data-testid={`text-policy-date-${selected.id}`} className="text-right font-medium">{formatDate(selected.createdAt)}</dd>
               </div>
             </dl>
+            <PolicyDeclarations policy={selected} compact />
+            <PolicySearch key={selected.id} policy={selected} />
             <p className="mt-4 flex items-start gap-2 rounded-lg bg-muted/70 px-3 py-2.5 text-xs leading-5 text-muted-foreground">
               <LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
-              Coverage details have not been extracted from this document.
+              Refer to the original document for the full policy wording.
             </p>
             <div className="mt-4">
               <PolicyFileLink policy={selected} />
@@ -201,7 +194,7 @@ export default function DashboardScreen({ go }: { go: Go }) {
                     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-primary"><FolderOpen className="h-5 w-5" aria-hidden /></span>
                     <div className="min-w-0 flex-1">
                       <h3 data-testid={`text-claim-title-${claim.id}`} className="truncate font-semibold">{claim.title}</h3>
-                      <p className="mt-1 text-sm text-muted-foreground">{claim.status} <span aria-hidden>·</span> {new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(claim.totalExpenses)} recorded expenses</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{claimStatusLabel(claim.status)} <span aria-hidden>·</span> {new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(claim.totalExpenses)} recorded expenses</p>
                       <p className="mt-1 text-xs text-muted-foreground">Updated {formatDate(claim.updatedAt)}</p>
                     </div>
                     <Link href={`/workspace/claim/${encodeURIComponent(claim.id)}`} data-testid={`link-open-claim-${claim.id}`} className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-input bg-background px-3 text-sm font-semibold transition-colors hover:border-primary hover:text-primary">Open claim</Link>

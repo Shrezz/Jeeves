@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { PolicyIngestionStatus } from './policyIngestionStatus';
 import type { PolicyStatus } from './policyStatus';
 
 export interface Policy {
@@ -17,4 +18,7 @@ export interface Policy {
   status: PolicyStatus;
   createdAt: string;
   documentUrl: string;
+  ingestionStatus?: PolicyIngestionStatus;
+  /** @minimum 0 */
+  indexedChunks?: number;
 }
