@@ -1,0 +1,3 @@
+{"id":"held_rag_debris","question":"Which clause covers an outside window struck by wind-blown objects?","page":2,"expected_text":"W-16"}
+{"id":"held_rag_cap","question":"What is the maximum reimbursement for emergency boards across a window?","page":2,"expected_text":"$275"}
+{"id":"held_rag_old_damage","question":"Does the policy exclude damage to an already broken window?","page":2,"expected_text":"X-04"}

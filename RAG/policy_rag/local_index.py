@@ -9,6 +9,7 @@ from chromadb.utils.embedding_functions.onnx_mini_lm_l6_v2 import ONNXMiniLM_L6_
 from .chunker import build_chunks
 from .pdf_parser import parse_pdf
 from .policy_identity import read_identity
+from .observability import span
 
 
 class LocalPolicyIndex:
@@ -29,7 +30,8 @@ class LocalPolicyIndex:
         return {"$and": [{"user_id": {"$eq": owner}}, {"policy_id": {"$eq": str(policy)}}]}
 
     def index(self, owner: str, policy: UUID, pdf: Path) -> int:
-        elements = parse_pdf(pdf)
+        with span("policy-pdf-extraction"):
+            elements = parse_pdf(pdf)
         identity = read_identity(elements)
         by_page = defaultdict(list)
         for element in elements:
@@ -49,7 +51,9 @@ class LocalPolicyIndex:
             batch = chunks[offset:offset + 32]
             texts = [doc.page_content for doc in batch]
             ids = [f"{policy}:{offset+i}" for i in range(len(batch))]
-            self.collection.upsert(ids=ids, documents=texts, embeddings=self.embed(texts),
+            with span("policy-embedding", model="all-MiniLM-L6-v2", batch_size=len(texts)):
+                embeddings = self.embed(texts)
+            self.collection.upsert(ids=ids, documents=texts, embeddings=embeddings,
                 metadatas=[{**doc.metadata, "chunk_id": cid} for doc, cid in zip(batch, ids)])
         count = len(self.collection.get(where=self.scope(owner, policy), include=[])["ids"])
         if count != len(chunks):
@@ -62,7 +66,10 @@ class LocalPolicyIndex:
             # The incident alone may retrieve only the coverage grant and miss terms that change it.
             queries += ["Covered causes exclusions conditions endorsements for " + question[:220],
                         "Declarations applicable deductible expense limit estimated payment endorsements"]
-        result = self.collection.query(query_embeddings=self.embed(queries), n_results=6 if for_chat else 3,
+        with span("query-embedding", model="all-MiniLM-L6-v2", batch_size=len(queries)):
+            embeddings = self.embed(queries)
+        with span("vector-search", query_count=len(queries)):
+            result = self.collection.query(query_embeddings=embeddings, n_results=6 if for_chat else 3,
             where=self.scope(owner, policy), include=["documents", "metadatas"])
         hits = {}
         for rank in range(max(map(len, result["ids"]), default=0)):

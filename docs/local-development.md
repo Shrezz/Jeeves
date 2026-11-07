@@ -156,6 +156,20 @@ and retrieved passages to Nebius instead, set `CLAIM_CHAT_PROVIDER=nebius`,
 `NEBIUS_API_KEY`, `NEBIUS_GENERATOR_MODEL`, and `NEBIUS_REVIEWER_MODEL` in the
 server-side `.env.local` and restart. The local test does not use those credentials.
 
+### Langfuse observability
+
+Optionally set `LANGFUSE_TRACING_ENABLED=true`, `LANGFUSE_PUBLIC_KEY`,
+`LANGFUSE_SECRET_KEY`, and `LANGFUSE_BASE_URL` in the ignored server-side
+`apps/web/.env.local`, and restart the local launcher. The UI claim worker exports
+metadata-only workflow, model, and retrieval observations; the policy worker
+exports ingestion, embedding and vector-search observations. Claim-driven policy
+search carries trace context into the child process; independent uploads create
+their own trace. Raw questions, prompts, policy excerpts, credentials, and vectors
+are not deliberately included. Never put secrets in VITE_ variables. The optional
+synthetic-content capture for the fixture demo is not forwarded to UI workers.
+
+See `evals/README.md` for synthetic workflow, retrieval, and embedding experiments.
+
 ## Stop and restart
 
 Ctrl+C in the launcher stops the UI/API. PostgreSQL remains running. From the repo

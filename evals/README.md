@@ -21,10 +21,39 @@ The `API tests and coverage` GitHub workflow runs the API suite and retains a co
 Reports include each case and check, passed/failed/unscored counts, per-check rates, end-to-end counts, elapsed time, and a two-case comparison of the injected draft before review and the result after review. The comparison examines citation references, not semantic correctness or live-model quality. The fixture model is deterministic; it does not establish real LLM accuracy. See `results/` for the recorded sample run and its failures.
 
 Add `--strict` to exit nonzero if any check fails, is unscored, or the scenario errors. This is suitable for a CI gate once the team has supplied the required human annotations and connected the missing integrations.
+`--fail-on-failed` fails on measured failures or execution errors while keeping
+missing human labels unscored. CI uses it for development scenarios only; it does
+not treat missing labels as passes or run the held-out split for tuning.
 
 ## Human review
 
 Follow `review-rubric.md` after inspecting the generated synthetic answers and supporting policy passages. Optional JSON annotations are supplied with `--annotations PATH`. Missing human labels are always reported as unscored, never as passes. Automated citation presence or reviewer agreement does not establish that an explanation is supported.
+
+## Local policy RAG and embeddings
+
+Install `RAG/requirements.txt` in `RAG/.venv`, then from the repository root run:
+
+```sh
+RAG/.venv/bin/python evals/rag_suite.py --strict --output reports/rag-dev.json
+RAG/.venv/bin/python evals/rag_suite.py --dataset evals/datasets/rag_held_out.jsonl --strict --output reports/rag-held-out.json
+```
+
+The suite uses the actual PDF parser, chunker, MiniLM embeddings and a disposable
+Chroma index; it never reads the application's policy database. Seven development
+queries and three held-out queries check whether an expected phrase occurs on the
+expected page among returned passages. Reports include rank, recall at the returned
+result count, mean reciprocal rank, page checks, timing and errors. It checks
+indexing repeatability, embedding dimensions/finite values/repeatability, three
+synthetic relative-similarity probes, and owner/policy isolation. These synthetic
+labels need team review; neither exact phrase matching nor these similarity probes
+establishes semantic answer faithfulness. Unsupported-answer abstention and human
+review remain explicitly unscored. Held-out queries should not be used for tuning.
+
+Add `--langfuse --run-name NAME` with Langfuse environment variables set to export
+the fictional query and component-check scores. `--strict` gates measured failures
+and execution errors, not the explicitly unscored human-review criteria. The first
+run downloads MiniLM to the temporary evaluation directory. Search-only scores do
+not evaluate a generated response or the signed-in UI end to end.
 
 ## Send an experiment to Langfuse
 

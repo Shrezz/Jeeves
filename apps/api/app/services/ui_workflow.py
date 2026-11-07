@@ -18,6 +18,7 @@ from app.agents.checkpoints import checkpoint_serializer
 from app.agents.context import AgentContext
 from app.agents.graph import build_graph
 from app.agents.state import AgentState
+from app.observability.tracing import flush_traces, observation, trace_session
 from app.schemas.agents import AgentRequest, Clarification, HumanDecision, PacketDraft
 from app.services.chat_guidance import guidance
 from app.services.chat_worker import chat_models
@@ -258,10 +259,19 @@ async def main():
             chat_models() as (generator, reviewer),
         ):
             try:
-                await execute(db, saver, request, generator, reviewer)
+                with (
+                    trace_session(request["runId"]),
+                    observation(
+                        "ui-claim-workflow",
+                        metadata={"provider": os.environ.get("CLAIM_CHAT_PROVIDER", "ollama")},
+                    ),
+                ):
+                    await execute(db, saver, request, generator, reviewer)
                 print(json.dumps({"ok": True}))
             except ClaimChanged as e:
                 print(json.dumps({"conflict": str(e)}))
+            finally:
+                flush_traces()
 
 
 if __name__ == "__main__":

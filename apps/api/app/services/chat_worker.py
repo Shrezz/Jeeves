@@ -11,6 +11,7 @@ import httpx
 from pydantic import ValidationError
 
 from app.agents.context import Output
+from app.observability.tracing import observation
 from app.services.chat_guidance import guidance
 from app.services.nebius import NebiusModel
 
@@ -21,6 +22,17 @@ class OllamaModel:
     model: str
 
     async def generate(self, *, prompt: str, payload: dict, output_type: type[Output]) -> Output:
+        with observation(
+            "model-generation",
+            as_type="generation",
+            model=self.model,
+            metadata={"provider": "ollama", "schema": output_type.__name__},
+        ) as span:
+            result = await self._generate(prompt=prompt, payload=payload, output_type=output_type)
+            span.update(output={"validated": True})
+            return result
+
+    async def _generate(self, *, prompt: str, payload: dict, output_type: type[Output]) -> Output:
         schema = output_type.model_json_schema()
         # Pydantic accepts Decimal as a number OR arbitrary string. Constrain the
         # provider's grammar so it can't emit formatted currency like "$1,000".

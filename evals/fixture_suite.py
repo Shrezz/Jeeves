@@ -369,6 +369,10 @@ def main():
     parser.add_argument(
         "--strict", action="store_true", help="Exit nonzero on failed, unscored, or errored checks"
     )
+    parser.add_argument(
+        "--fail-on-failed", action="store_true",
+        help="Exit nonzero on failures or errors; preserve unscored checks in the report",
+    )
     args = parser.parse_args()
     cases = load_cases(args.dataset)
     annotations = (
@@ -462,6 +466,8 @@ def main():
     if args.strict and (
         result["failed_checks"] or result["unscored_checks"] or result["execution_errors"]
     ):
+        raise SystemExit(1)
+    if args.fail_on_failed and (result["failed_checks"] or result["execution_errors"]):
         raise SystemExit(1)
 
 

@@ -28,10 +28,19 @@ jobs:
           uv sync --locked --group dev
       - name: Run API tests with statement and branch coverage
         run: uv run --locked pytest -q tests --ignore=tests/database --cov=app --cov-branch --cov-report=term --cov-report=xml:coverage.xml
+      - name: Run synthetic development scenarios
+        run: uv run --locked python ../../evals/fixture_suite.py ../../evals/datasets/dev.jsonl --fail-on-failed --output ../../reports/workflow-dev.json
       - name: Retain coverage report
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: api-coverage
           path: apps/api/coverage.xml
+          if-no-files-found: warn
+      - name: Retain workflow evaluation report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: workflow-development-evaluation
+          path: reports/workflow-dev.json
           if-no-files-found: warn

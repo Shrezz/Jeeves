@@ -1,0 +1,7 @@
+{"id":"rag_wind_coverage","question":"Does windborne debris breaking an exterior window count as a covered cause?","page":2,"expected_text":"W-16"}
+{"id":"rag_boarding_limit","question":"How much does the policy allow for temporary window boarding?","page":2,"expected_text":"$275"}
+{"id":"rag_wear_exclusion","question":"Is gradual wear or long-term water seepage excluded?","page":2,"expected_text":"X-04"}
+{"id":"rag_deductible","question":"What is the flat deductible per covered occurrence?","page":1,"expected_text":"$1,000"}
+{"id":"rag_policy_number","question":"What is the policy number shown in the declarations?","page":1,"expected_text":"CCV-HO3-CA-100731"}
+{"id":"rag_receipt","question":"What proof should I keep for window boarding?","page":2,"expected_text":"receipt"}
+{"id":"rag_term","question":"When does this policy period end?","page":1,"expected_text":"December 31, 2026"}

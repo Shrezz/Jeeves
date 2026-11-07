@@ -1,0 +1,34 @@
+name: Synthetic RAG evaluations
+on:
+  push:
+    paths: ['RAG/**', 'evals/rag_suite.py', 'evals/datasets/rag_*.jsonl', 'data/fixtures/**', '.github/workflows/rag-evals.yml']
+  pull_request:
+    paths: ['RAG/**', 'evals/rag_suite.py', 'evals/datasets/rag_*.jsonl', 'data/fixtures/**', '.github/workflows/rag-evals.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install RAG dependencies
+        run: python -m pip install -r RAG/requirements.txt pytest
+      - name: Run local RAG tests
+        working-directory: RAG
+        run: python -m pytest -q tests
+      - name: Run synthetic development retrieval and embedding evaluation
+        env:
+          ANONYMIZED_TELEMETRY: 'False'
+        run: python evals/rag_suite.py --strict --output reports/rag-dev.json
+      - name: Retain RAG report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: rag-development-evaluation
+          path: reports/rag-dev.json
+          if-no-files-found: warn

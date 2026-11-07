@@ -1,4 +1,5 @@
 """One private stdin/stdout request from Express; no HTTP port, credentials, or paid calls."""
+
 import json
 import os
 import sys
@@ -9,6 +10,7 @@ from uuid import UUID
 from filelock import FileLock
 
 from .local_index import LocalPolicyIndex
+from .observability import flush, span
 
 
 def main():
@@ -17,15 +19,38 @@ def main():
     directory = Path(os.environ["LOCAL_RAG_DATA_DIR"])
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     # Uploads, dashboard searches, and graph workers share one embedded Chroma writer.
-    with FileLock(directory / "worker.lock", timeout=45), redirect_stdout(sys.stderr):
+    from opentelemetry import context, propagate
+
+    carrier = {
+        key.lower(): os.environ[key] for key in ("TRACEPARENT", "TRACESTATE") if key in os.environ
+    }
+    token = context.attach(propagate.extract(carrier))
+    try:
+        result = perform(request, owner, policy, directory)
+    finally:
+        flush()
+        context.detach(token)
+    print(json.dumps(result))
+
+
+def perform(request, owner, policy, directory):
+    with (
+        FileLock(directory / "worker.lock", timeout=45),
+        redirect_stdout(sys.stderr),
+        span("local-policy-" + request["operation"]),
+    ):
         index = LocalPolicyIndex(directory)
         if request["operation"] == "index":
             result = {"count": index.index(owner, policy, Path(request["pdf"]))}
         elif request["operation"] == "search":
-            result = {"passages": index.search(owner, policy, request["question"], for_chat=request.get("forChat", False))}
+            result = {
+                "passages": index.search(
+                    owner, policy, request["question"], for_chat=request.get("forChat", False)
+                )
+            }
         else:
             raise ValueError("Unknown operation")
-    print(json.dumps(result))
+    return result
 
 
 if __name__ == "__main__":

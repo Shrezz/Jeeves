@@ -115,12 +115,26 @@ class WebClaimStore:
         )
 
     async def retrieve_evidence(self, *, user_id, policy_id, question, limit):
+        from app.observability.tracing import observation
+
+        with observation("ui-policy-retrieval", input={"limit": limit}) as span:
+            result = await self._retrieve_evidence(
+                user_id=user_id, policy_id=policy_id, question=question, limit=limit
+            )
+            span.update(output={"passage_count": len(result)})
+            return result
+
+    async def _retrieve_evidence(self, *, user_id, policy_id, question, limit):
         if (user_id, policy_id) != (self.owner, self.policy):
             raise PermissionError("Policy not found")
         if not self.searchable:
             return []
         root = Path(os.environ["LOCAL_RAG_ROOT"])
         python = root / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        from opentelemetry.propagate import inject
+
+        carrier: dict[str, str] = {}
+        inject(carrier)
         proc = await asyncio.create_subprocess_exec(
             str(python),
             "-m",
@@ -130,12 +144,27 @@ class WebClaimStore:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL,
             env={
-                k: os.environ[k] for k in ("PATH", "HOME", "LOCAL_RAG_DATA_DIR") if k in os.environ
+                k: os.environ[k]
+                for k in (
+                    "PATH",
+                    "HOME",
+                    "LOCAL_RAG_DATA_DIR",
+                    "LANGFUSE_TRACING_ENABLED",
+                    "LANGFUSE_PUBLIC_KEY",
+                    "LANGFUSE_SECRET_KEY",
+                    "LANGFUSE_BASE_URL",
+                )
+                if k in os.environ
             }
             | {
                 "ANONYMIZED_TELEMETRY": "False",
                 "POLICY_RAG_TRACE": "0",
                 "TOKENIZERS_PARALLELISM": "false",
+                **{
+                    key.upper(): value
+                    for key, value in carrier.items()
+                    if key in {"traceparent", "tracestate"}
+                },
             },
         )
         query = question[:1000] + "\n" + "\n".join(self.notes[-6:])[-1800:]
