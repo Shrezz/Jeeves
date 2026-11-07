@@ -126,6 +126,41 @@ def test_ollama_usage_sums_provider_counts_across_retries(monkeypatch):
     } in updates
 
 
+def test_unsupported_ollama_structured_output_is_recorded_without_response_body(monkeypatch):
+    updates = []
+
+    class Span:
+        def update(self, **kwargs):
+            updates.append(kwargs)
+
+    @contextmanager
+    def capture(name, **kwargs):
+        yield Span()
+
+    monkeypatch.setattr("app.services.chat_worker.observation", capture)
+
+    async def run():
+        transport = httpx.MockTransport(
+            lambda request: httpx.Response(501, json={"error": "private content"})
+        )
+        async with httpx.AsyncClient(base_url="http://localhost/", transport=transport) as client:
+            await OllamaModel(client, "test-model").generate(
+                prompt="synthetic", payload={}, output_type=RouteDecision
+            )
+
+    with pytest.raises(RuntimeError, match="structured output is unavailable"):
+        asyncio.run(run())
+    assert updates == [
+        {
+            "metadata": {
+                "provider": "ollama",
+                "schema": "RouteDecision",
+                "failure_type": "structured_output_unavailable",
+            }
+        }
+    ]
+
+
 def test_ui_worker_flushes_trace_when_database_setup_fails(monkeypatch):
     from app.services import ui_workflow
 

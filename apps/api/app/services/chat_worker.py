@@ -74,6 +74,17 @@ class OllamaModel:
                     "messages": messages,
                 },
             )
+            if response.status_code == 501:
+                span.update(
+                    metadata={
+                        "provider": "ollama",
+                        "schema": output_type.__name__,
+                        "failure_type": "structured_output_unavailable",
+                    }
+                )
+                raise RuntimeError(
+                    "Ollama structured output is unavailable; use a compatible model and runtime"
+                )
             response.raise_for_status()
             data = response.json()
             for field, key in (

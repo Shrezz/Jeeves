@@ -123,6 +123,10 @@ Run Ollama locally with `gemma4:12b` installed (`ollama pull gemma4:12b` if need
 The desktop app or `ollama serve` must listen on 127.0.0.1:11434. No model key is
 required. To use a different installed model that supports structured output,
 set `OLLAMA_MODEL` in `apps/web/.env.local` and restart the launcher.
+The selected runtime must support JSON-schema structured output. If it returns
+HTTP 501, use a compatible Ollama build/model; the worker does not silently fall
+back to unconstrained output. Some Homebrew/MLX builds have had a missing grammar
+library: https://github.com/ollama/ollama/issues/18597
 
 Open **File Your Claim**, select the indexed policy under **Saved policy**, create
 a draft, then use **Ask**. First ask “A window broke. Is the repair covered?”
