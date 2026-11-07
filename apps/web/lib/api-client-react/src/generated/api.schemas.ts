@@ -9,14 +9,25 @@ export type ClaimStatus = typeof ClaimStatus[keyof typeof ClaimStatus];
 
 
 export const ClaimStatus = {
-  Draft: 'Draft',
-  Gathering_evidence: 'Gathering evidence',
-  Preparation_requested: 'Preparation requested',
-  Package_prepared: 'Package prepared',
-  Submitted_in_Claimwise: 'Submitted in Claimwise',
-  Filed_by_me_with_insurer: 'Filed by me with insurer',
-  Insurer_decision_received: 'Insurer decision received',
-  Resolved_without_filing: 'Resolved without filing',
+  draft: 'draft',
+  gathering_evidence: 'gathering_evidence',
+  preparation_requested: 'preparation_requested',
+  prepared: 'prepared',
+  filed_by_user: 'filed_by_user',
+  insurer_decision_received: 'insurer_decision_received',
+  resolved_without_filing: 'resolved_without_filing',
+  submitted_in_claimwise: 'submitted_in_claimwise',
+} as const;
+
+export type ManualClaimStatus = typeof ManualClaimStatus[keyof typeof ManualClaimStatus];
+
+
+export const ManualClaimStatus = {
+  draft: 'draft',
+  gathering_evidence: 'gathering_evidence',
+  filed_by_user: 'filed_by_user',
+  insurer_decision_received: 'insurer_decision_received',
+  resolved_without_filing: 'resolved_without_filing',
 } as const;
 
 export interface ClaimInput {
@@ -63,7 +74,7 @@ export interface ClaimMessageInput {
      * @nullable
      */
   expense?: number | null;
-  status?: ClaimStatus;
+  status?: ManualClaimStatus;
   /** @maxItems 10 */
   attachmentIds?: string[];
 }
@@ -129,6 +140,68 @@ export interface ClaimGuidanceInput {
   messageId: string;
 }
 
+export type ClaimReviewResponseInputAction = typeof ClaimReviewResponseInputAction[keyof typeof ClaimReviewResponseInputAction];
+
+
+export const ClaimReviewResponseInputAction = {
+  approve: 'approve',
+  edit: 'edit',
+  reject: 'reject',
+  clarify: 'clarify',
+} as const;
+
+export interface ClaimReviewResponseInput {
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  interruptId: string;
+  /** @minimum 0 */
+  version: number;
+  action: ClaimReviewResponseInputAction;
+  /**
+     * @minLength 1
+     * @maxLength 2500
+     */
+  feedback?: string;
+}
+
+export interface WorkflowField {
+  label: string;
+  value: string;
+}
+
+export type ClaimWorkflowRoute = typeof ClaimWorkflowRoute[keyof typeof ClaimWorkflowRoute];
+
+
+export const ClaimWorkflowRoute = {
+  answer_claim: 'answer_claim',
+  file_claim: 'file_claim',
+  save_claim_status: 'save_claim_status',
+  clarify: 'clarify',
+} as const;
+
+export type ClaimWorkflowPhase = typeof ClaimWorkflowPhase[keyof typeof ClaimWorkflowPhase];
+
+
+export const ClaimWorkflowPhase = {
+  answer_ready: 'answer_ready',
+  human_review: 'human_review',
+  needs_information: 'needs_information',
+  blocked: 'blocked',
+  completed: 'completed',
+  rejected: 'rejected',
+} as const;
+
+export interface ClaimWorkflow {
+  route: ClaimWorkflowRoute;
+  phase: ClaimWorkflowPhase;
+  interruptId?: string;
+  version: number;
+  narrative?: string;
+  fields: WorkflowField[];
+}
+
 export type ClaimGuidanceState = typeof ClaimGuidanceState[keyof typeof ClaimGuidanceState];
 
 
@@ -138,12 +211,22 @@ export const ClaimGuidanceState = {
   error: 'error',
 } as const;
 
+export interface PolicyPassage {
+  chunkId: string;
+  /** @minimum 1 */
+  page: number;
+  section: string;
+  excerpt: string;
+}
+
 export interface ClaimGuidance {
   id: string;
   claimId: string;
   messageId: string;
   /** @nullable */
   content: string | null;
+  workflow?: ClaimWorkflow;
+  sources: PolicyPassage[];
   state: ClaimGuidanceState;
   createdAt: string;
   updatedAt: string;
@@ -168,6 +251,16 @@ export const PolicyStatus = {
   saved: 'saved',
 } as const;
 
+export type PolicyIngestionStatus = typeof PolicyIngestionStatus[keyof typeof PolicyIngestionStatus];
+
+
+export const PolicyIngestionStatus = {
+  not_started: 'not_started',
+  processing: 'processing',
+  ready: 'ready',
+  failed: 'failed',
+} as const;
+
 export interface Policy {
   id: string;
   label: string;
@@ -178,6 +271,9 @@ export interface Policy {
   status: PolicyStatus;
   createdAt: string;
   documentUrl: string;
+  ingestionStatus?: PolicyIngestionStatus;
+  /** @minimum 0 */
+  indexedChunks?: number;
 }
 
 export interface ClaimWorkspace {
@@ -268,6 +364,22 @@ export interface PolicyUpload {
   uploadURL: string;
 }
 
+export interface PolicyDeclaration {
+  kind: string;
+  label: string;
+  value: string;
+  /** @minimum 1 */
+  page: number;
+}
+
+export interface PolicySearchInput {
+  /**
+     * @minLength 1
+     * @maxLength 800
+     */
+  question: string;
+}
+
 export interface JeevConversation {
   id: string;
   title: string;
@@ -325,4 +437,12 @@ export type InvalidInputResponse = ApiError;
  * Policy not found
  */
 export type NotFoundResponse = ApiError;
+
+export type GetPolicyDeclarations200 = {
+  fields: PolicyDeclaration[];
+};
+
+export type SearchPolicy200 = {
+  passages: PolicyPassage[];
+};
 

@@ -1,6 +1,7 @@
 import type { Claim, ClaimEvidence, Policy } from '@workspace/api-client-react';
 import { UploadCloud, X } from 'lucide-react';
 import { EvidenceIcon } from './claim-conversation';
+import { PolicyDeclarations } from '@/components/policy-declarations';
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 function documentHref(url: string) {
@@ -40,7 +41,12 @@ export function ClaimSidebar({
           : <div className="mt-4 rounded-xl border border-dashed border-primary/25 bg-[hsl(176_30%_96%)] p-4"><UploadCloud className="h-5 w-5 text-primary" aria-hidden /><p className="mt-2 text-sm font-semibold">No evidence added yet</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Attach a PDF, photo, or video to keep it with this claim.</p></div>}
       </section>
       <section className="rounded-2xl border border-card-border bg-[hsl(176_30%_94%)] p-5"><p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Expenses</p><p className="mt-2 font-display text-3xl tabular-nums" data-testid="text-expense-total">{currency(claim.totalExpenses)}</p><p className="mt-1 text-xs text-muted-foreground">Recorded total · amounts add to this running total</p></section>
-      <section className="rounded-2xl border border-card-border bg-card p-5"><p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Selected policy</p>{policy ? <><h2 className="mt-2 font-semibold">{policy.label}</h2><p className="mt-1 text-sm text-muted-foreground">Deductible: {policy.deductible === null ? 'Not provided' : currency(policy.deductible)}</p></> : <p className="mt-2 text-sm leading-5 text-muted-foreground">No saved policy is linked to this claim.</p>}</section>
+      <section className="rounded-2xl border border-card-border bg-card p-5">
+        <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Selected policy</p>
+        {policy ? <><h2 className="mt-2 font-semibold [overflow-wrap:anywhere]">{policy.label}</h2>
+          <PolicyDeclarations key={policy.id} policy={policy} compact /></>
+          : <p className="mt-2 text-sm leading-5 text-muted-foreground">No saved policy is linked to this claim.</p>}
+      </section>
     </aside>
   );
 }

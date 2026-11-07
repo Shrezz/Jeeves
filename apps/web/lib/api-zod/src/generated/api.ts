@@ -64,7 +64,7 @@ export const ListClaimsResponseItem = zod.object({
   "id": zod.string().uuid(),
   "title": zod.string(),
   "policyId": zod.string().nullable(),
-  "status": zod.enum(['Draft', 'Gathering evidence', 'Preparation requested', 'Package prepared', 'Submitted in Claimwise', 'Filed by me with insurer', 'Insurer decision received', 'Resolved without filing']),
+  "status": zod.enum(['draft', 'gathering_evidence', 'preparation_requested', 'prepared', 'filed_by_user', 'insurer_decision_received', 'resolved_without_filing', 'submitted_in_claimwise']),
   "totalExpenses": zod.number(),
   "latestUpdate": zod.string().nullable(),
   "createdAt": zod.string(),
@@ -87,7 +87,7 @@ export const CreateClaimResponse = zod.object({
   "id": zod.string().uuid(),
   "title": zod.string(),
   "policyId": zod.string().nullable(),
-  "status": zod.enum(['Draft', 'Gathering evidence', 'Preparation requested', 'Package prepared', 'Submitted in Claimwise', 'Filed by me with insurer', 'Insurer decision received', 'Resolved without filing']),
+  "status": zod.enum(['draft', 'gathering_evidence', 'preparation_requested', 'prepared', 'filed_by_user', 'insurer_decision_received', 'resolved_without_filing', 'submitted_in_claimwise']),
   "totalExpenses": zod.number(),
   "latestUpdate": zod.string().nullable(),
   "createdAt": zod.string(),
@@ -99,12 +99,17 @@ export const GetClaimParams = zod.object({
   "id": zod.coerce.string().uuid()
 })
 
+export const getClaimResponsePolicyOneIndexedChunksMin = 0;
+
+
+
+
 export const GetClaimResponse = zod.object({
   "claim": zod.object({
   "id": zod.string().uuid(),
   "title": zod.string(),
   "policyId": zod.string().nullable(),
-  "status": zod.enum(['Draft', 'Gathering evidence', 'Preparation requested', 'Package prepared', 'Submitted in Claimwise', 'Filed by me with insurer', 'Insurer decision received', 'Resolved without filing']),
+  "status": zod.enum(['draft', 'gathering_evidence', 'preparation_requested', 'prepared', 'filed_by_user', 'insurer_decision_received', 'resolved_without_filing', 'submitted_in_claimwise']),
   "totalExpenses": zod.number(),
   "latestUpdate": zod.string().nullable(),
   "createdAt": zod.string(),
@@ -118,7 +123,9 @@ export const GetClaimResponse = zod.object({
   "deductible": zod.number().nullable(),
   "status": zod.enum(['saved']),
   "createdAt": zod.string(),
-  "documentUrl": zod.string()
+  "documentUrl": zod.string(),
+  "ingestionStatus": zod.enum(['not_started', 'processing', 'ready', 'failed']).optional(),
+  "indexedChunks": zod.number().int().min(getClaimResponsePolicyOneIndexedChunksMin).optional()
 }),zod.null()]),
   "messages": zod.array(zod.object({
   "id": zod.string().uuid(),
@@ -136,6 +143,23 @@ export const GetClaimResponse = zod.object({
   "claimId": zod.string().uuid(),
   "messageId": zod.string().uuid(),
   "content": zod.string().nullable(),
+  "workflow": zod.object({
+  "route": zod.enum(['answer_claim', 'file_claim', 'save_claim_status', 'clarify']),
+  "phase": zod.enum(['answer_ready', 'human_review', 'needs_information', 'blocked', 'completed', 'rejected']),
+  "interruptId": zod.string().optional(),
+  "version": zod.number().int(),
+  "narrative": zod.string().optional(),
+  "fields": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.string()
+}))
+}).optional(),
+  "sources": zod.array(zod.object({
+  "chunkId": zod.string(),
+  "page": zod.number().int().min(1),
+  "section": zod.string(),
+  "excerpt": zod.string()
+})),
   "state": zod.enum(['pending', 'ready', 'error']),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
@@ -157,6 +181,9 @@ export const GetClaimReviewParams = zod.object({
   "id": zod.coerce.string().uuid()
 })
 
+export const getClaimReviewResponseWorkspacePolicyOneIndexedChunksMin = 0;
+
+
 export const getClaimReviewResponseVersionMin = 0;
 
 
@@ -167,7 +194,7 @@ export const GetClaimReviewResponse = zod.object({
   "id": zod.string().uuid(),
   "title": zod.string(),
   "policyId": zod.string().nullable(),
-  "status": zod.enum(['Draft', 'Gathering evidence', 'Preparation requested', 'Package prepared', 'Submitted in Claimwise', 'Filed by me with insurer', 'Insurer decision received', 'Resolved without filing']),
+  "status": zod.enum(['draft', 'gathering_evidence', 'preparation_requested', 'prepared', 'filed_by_user', 'insurer_decision_received', 'resolved_without_filing', 'submitted_in_claimwise']),
   "totalExpenses": zod.number(),
   "latestUpdate": zod.string().nullable(),
   "createdAt": zod.string(),
@@ -181,7 +208,9 @@ export const GetClaimReviewResponse = zod.object({
   "deductible": zod.number().nullable(),
   "status": zod.enum(['saved']),
   "createdAt": zod.string(),
-  "documentUrl": zod.string()
+  "documentUrl": zod.string(),
+  "ingestionStatus": zod.enum(['not_started', 'processing', 'ready', 'failed']).optional(),
+  "indexedChunks": zod.number().int().min(getClaimReviewResponseWorkspacePolicyOneIndexedChunksMin).optional()
 }),zod.null()]),
   "messages": zod.array(zod.object({
   "id": zod.string().uuid(),
@@ -199,6 +228,23 @@ export const GetClaimReviewResponse = zod.object({
   "claimId": zod.string().uuid(),
   "messageId": zod.string().uuid(),
   "content": zod.string().nullable(),
+  "workflow": zod.object({
+  "route": zod.enum(['answer_claim', 'file_claim', 'save_claim_status', 'clarify']),
+  "phase": zod.enum(['answer_ready', 'human_review', 'needs_information', 'blocked', 'completed', 'rejected']),
+  "interruptId": zod.string().optional(),
+  "version": zod.number().int(),
+  "narrative": zod.string().optional(),
+  "fields": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.string()
+}))
+}).optional(),
+  "sources": zod.array(zod.object({
+  "chunkId": zod.string(),
+  "page": zod.number().int().min(1),
+  "section": zod.string(),
+  "excerpt": zod.string()
+})),
   "state": zod.enum(['pending', 'ready', 'error']),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
@@ -250,6 +296,9 @@ export const SaveClaimReviewCommentsBody = zod.object({
   "version": zod.number().int().min(saveClaimReviewCommentsBodyVersionMin)
 })
 
+export const saveClaimReviewCommentsResponseWorkspacePolicyOneIndexedChunksMin = 0;
+
+
 export const saveClaimReviewCommentsResponseVersionMin = 0;
 
 
@@ -260,7 +309,7 @@ export const SaveClaimReviewCommentsResponse = zod.object({
   "id": zod.string().uuid(),
   "title": zod.string(),
   "policyId": zod.string().nullable(),
-  "status": zod.enum(['Draft', 'Gathering evidence', 'Preparation requested', 'Package prepared', 'Submitted in Claimwise', 'Filed by me with insurer', 'Insurer decision received', 'Resolved without filing']),
+  "status": zod.enum(['draft', 'gathering_evidence', 'preparation_requested', 'prepared', 'filed_by_user', 'insurer_decision_received', 'resolved_without_filing', 'submitted_in_claimwise']),
   "totalExpenses": zod.number(),
   "latestUpdate": zod.string().nullable(),
   "createdAt": zod.string(),
@@ -274,7 +323,9 @@ export const SaveClaimReviewCommentsResponse = zod.object({
   "deductible": zod.number().nullable(),
   "status": zod.enum(['saved']),
   "createdAt": zod.string(),
-  "documentUrl": zod.string()
+  "documentUrl": zod.string(),
+  "ingestionStatus": zod.enum(['not_started', 'processing', 'ready', 'failed']).optional(),
+  "indexedChunks": zod.number().int().min(saveClaimReviewCommentsResponseWorkspacePolicyOneIndexedChunksMin).optional()
 }),zod.null()]),
   "messages": zod.array(zod.object({
   "id": zod.string().uuid(),
@@ -292,6 +343,23 @@ export const SaveClaimReviewCommentsResponse = zod.object({
   "claimId": zod.string().uuid(),
   "messageId": zod.string().uuid(),
   "content": zod.string().nullable(),
+  "workflow": zod.object({
+  "route": zod.enum(['answer_claim', 'file_claim', 'save_claim_status', 'clarify']),
+  "phase": zod.enum(['answer_ready', 'human_review', 'needs_information', 'blocked', 'completed', 'rejected']),
+  "interruptId": zod.string().optional(),
+  "version": zod.number().int(),
+  "narrative": zod.string().optional(),
+  "fields": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.string()
+}))
+}).optional(),
+  "sources": zod.array(zod.object({
+  "chunkId": zod.string(),
+  "page": zod.number().int().min(1),
+  "section": zod.string(),
+  "excerpt": zod.string()
+})),
   "state": zod.enum(['pending', 'ready', 'error']),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
@@ -344,6 +412,9 @@ export const SubmitClaimReviewBody = zod.object({
   "sourceUpdatedAt": zod.coerce.date()
 })
 
+export const submitClaimReviewResponseWorkspacePolicyOneIndexedChunksMin = 0;
+
+
 export const submitClaimReviewResponseVersionMin = 0;
 
 
@@ -354,7 +425,7 @@ export const SubmitClaimReviewResponse = zod.object({
   "id": zod.string().uuid(),
   "title": zod.string(),
   "policyId": zod.string().nullable(),
-  "status": zod.enum(['Draft', 'Gathering evidence', 'Preparation requested', 'Package prepared', 'Submitted in Claimwise', 'Filed by me with insurer', 'Insurer decision received', 'Resolved without filing']),
+  "status": zod.enum(['draft', 'gathering_evidence', 'preparation_requested', 'prepared', 'filed_by_user', 'insurer_decision_received', 'resolved_without_filing', 'submitted_in_claimwise']),
   "totalExpenses": zod.number(),
   "latestUpdate": zod.string().nullable(),
   "createdAt": zod.string(),
@@ -368,7 +439,9 @@ export const SubmitClaimReviewResponse = zod.object({
   "deductible": zod.number().nullable(),
   "status": zod.enum(['saved']),
   "createdAt": zod.string(),
-  "documentUrl": zod.string()
+  "documentUrl": zod.string(),
+  "ingestionStatus": zod.enum(['not_started', 'processing', 'ready', 'failed']).optional(),
+  "indexedChunks": zod.number().int().min(submitClaimReviewResponseWorkspacePolicyOneIndexedChunksMin).optional()
 }),zod.null()]),
   "messages": zod.array(zod.object({
   "id": zod.string().uuid(),
@@ -386,6 +459,23 @@ export const SubmitClaimReviewResponse = zod.object({
   "claimId": zod.string().uuid(),
   "messageId": zod.string().uuid(),
   "content": zod.string().nullable(),
+  "workflow": zod.object({
+  "route": zod.enum(['answer_claim', 'file_claim', 'save_claim_status', 'clarify']),
+  "phase": zod.enum(['answer_ready', 'human_review', 'needs_information', 'blocked', 'completed', 'rejected']),
+  "interruptId": zod.string().optional(),
+  "version": zod.number().int(),
+  "narrative": zod.string().optional(),
+  "fields": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.string()
+}))
+}).optional(),
+  "sources": zod.array(zod.object({
+  "chunkId": zod.string(),
+  "page": zod.number().int().min(1),
+  "section": zod.string(),
+  "excerpt": zod.string()
+})),
   "state": zod.enum(['pending', 'ready', 'error']),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
@@ -440,7 +530,7 @@ export const SaveClaimMessageBody = zod.object({
   "content": zod.string().max(saveClaimMessageBodyContentMax),
   "kind": zod.enum(['ask', 'preparation_request', 'status_update']),
   "expense": zod.number().min(saveClaimMessageBodyExpenseMin).max(saveClaimMessageBodyExpenseMax).nullish(),
-  "status": zod.enum(['Draft', 'Gathering evidence', 'Preparation requested', 'Package prepared', 'Submitted in Claimwise', 'Filed by me with insurer', 'Insurer decision received', 'Resolved without filing']).optional(),
+  "status": zod.enum(['draft', 'gathering_evidence', 'filed_by_user', 'insurer_decision_received', 'resolved_without_filing']).optional(),
   "attachmentIds": zod.array(zod.string().uuid()).max(saveClaimMessageBodyAttachmentIdsMax).optional()
 })
 
@@ -465,11 +555,82 @@ export const RequestClaimGuidanceBody = zod.object({
   "messageId": zod.string().uuid()
 })
 
+
+
+
 export const RequestClaimGuidanceResponse = zod.object({
   "id": zod.string().uuid(),
   "claimId": zod.string().uuid(),
   "messageId": zod.string().uuid(),
   "content": zod.string().nullable(),
+  "workflow": zod.object({
+  "route": zod.enum(['answer_claim', 'file_claim', 'save_claim_status', 'clarify']),
+  "phase": zod.enum(['answer_ready', 'human_review', 'needs_information', 'blocked', 'completed', 'rejected']),
+  "interruptId": zod.string().optional(),
+  "version": zod.number().int(),
+  "narrative": zod.string().optional(),
+  "fields": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.string()
+}))
+}).optional(),
+  "sources": zod.array(zod.object({
+  "chunkId": zod.string(),
+  "page": zod.number().int().min(1),
+  "section": zod.string(),
+  "excerpt": zod.string()
+})),
+  "state": zod.enum(['pending', 'ready', 'error']),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+export const RespondToClaimReviewParams = zod.object({
+  "id": zod.coerce.string().uuid(),
+  "runId": zod.coerce.string().uuid()
+})
+
+export const respondToClaimReviewBodyInterruptIdMax = 128;
+
+export const respondToClaimReviewBodyVersionMin = 0;
+
+export const respondToClaimReviewBodyFeedbackMax = 2500;
+
+
+
+export const RespondToClaimReviewBody = zod.object({
+  "interruptId": zod.string().min(1).max(respondToClaimReviewBodyInterruptIdMax),
+  "version": zod.number().int().min(respondToClaimReviewBodyVersionMin),
+  "action": zod.enum(['approve', 'edit', 'reject', 'clarify']),
+  "feedback": zod.string().min(1).max(respondToClaimReviewBodyFeedbackMax).optional()
+})
+
+
+
+
+export const RespondToClaimReviewResponse = zod.object({
+  "id": zod.string().uuid(),
+  "claimId": zod.string().uuid(),
+  "messageId": zod.string().uuid(),
+  "content": zod.string().nullable(),
+  "workflow": zod.object({
+  "route": zod.enum(['answer_claim', 'file_claim', 'save_claim_status', 'clarify']),
+  "phase": zod.enum(['answer_ready', 'human_review', 'needs_information', 'blocked', 'completed', 'rejected']),
+  "interruptId": zod.string().optional(),
+  "version": zod.number().int(),
+  "narrative": zod.string().optional(),
+  "fields": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.string()
+}))
+}).optional(),
+  "sources": zod.array(zod.object({
+  "chunkId": zod.string(),
+  "page": zod.number().int().min(1),
+  "section": zod.string(),
+  "excerpt": zod.string()
+})),
   "state": zod.enum(['pending', 'ready', 'error']),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
@@ -526,6 +687,10 @@ export const DownloadClaimEvidenceResponse = zod.unknown()
 /**
  * @summary List the signed-in user's saved policies
  */
+export const listPoliciesResponseIndexedChunksMin = 0;
+
+
+
 export const ListPoliciesResponseItem = zod.object({
   "id": zod.string().uuid(),
   "label": zod.string(),
@@ -534,7 +699,9 @@ export const ListPoliciesResponseItem = zod.object({
   "deductible": zod.number().nullable(),
   "status": zod.enum(['saved']),
   "createdAt": zod.string(),
-  "documentUrl": zod.string()
+  "documentUrl": zod.string(),
+  "ingestionStatus": zod.enum(['not_started', 'processing', 'ready', 'failed']).optional(),
+  "indexedChunks": zod.number().int().min(listPoliciesResponseIndexedChunksMin).optional()
 })
 export const ListPoliciesResponse = zod.array(ListPoliciesResponseItem)
 
@@ -580,6 +747,10 @@ export const CompletePolicyUploadBody = zod.object({
   "deductible": zod.number().min(completePolicyUploadBodyDeductibleMin).max(completePolicyUploadBodyDeductibleMax).nullish()
 })
 
+export const completePolicyUploadResponseIndexedChunksMin = 0;
+
+
+
 export const CompletePolicyUploadResponse = zod.object({
   "id": zod.string().uuid(),
   "label": zod.string(),
@@ -588,7 +759,82 @@ export const CompletePolicyUploadResponse = zod.object({
   "deductible": zod.number().nullable(),
   "status": zod.enum(['saved']),
   "createdAt": zod.string(),
-  "documentUrl": zod.string()
+  "documentUrl": zod.string(),
+  "ingestionStatus": zod.enum(['not_started', 'processing', 'ready', 'failed']).optional(),
+  "indexedChunks": zod.number().int().min(completePolicyUploadResponseIndexedChunksMin).optional()
+})
+
+
+/**
+ * @summary Read labelled declarations from the signed-in user's saved local PDF
+ */
+export const GetPolicyDeclarationsParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+
+
+
+export const GetPolicyDeclarationsResponse = zod.object({
+  "fields": zod.array(zod.object({
+  "kind": zod.string(),
+  "label": zod.string(),
+  "value": zod.string(),
+  "page": zod.number().int().min(1)
+}))
+})
+
+
+/**
+ * @summary Find passages in a saved, indexed policy belonging to the signed-in user
+ */
+export const SearchPolicyParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const searchPolicyBodyQuestionMax = 800;
+
+
+
+export const SearchPolicyBody = zod.object({
+  "question": zod.string().min(1).max(searchPolicyBodyQuestionMax)
+})
+
+
+
+
+export const SearchPolicyResponse = zod.object({
+  "passages": zod.array(zod.object({
+  "chunkId": zod.string(),
+  "page": zod.number().int().min(1),
+  "section": zod.string(),
+  "excerpt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Retry local indexing without uploading the original again
+ */
+export const RetryPolicyIndexParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const retryPolicyIndexResponseIndexedChunksMin = 0;
+
+
+
+export const RetryPolicyIndexResponse = zod.object({
+  "id": zod.string().uuid(),
+  "label": zod.string(),
+  "fileName": zod.string(),
+  "size": zod.number().int(),
+  "deductible": zod.number().nullable(),
+  "status": zod.enum(['saved']),
+  "createdAt": zod.string(),
+  "documentUrl": zod.string(),
+  "ingestionStatus": zod.enum(['not_started', 'processing', 'ready', 'failed']).optional(),
+  "indexedChunks": zod.number().int().min(retryPolicyIndexResponseIndexedChunksMin).optional()
 })
 
 

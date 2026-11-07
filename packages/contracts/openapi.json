@@ -619,6 +619,22 @@
               }
             ],
             "title": "Repair Cost"
+          },
+          "repair_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "unknown",
+                  "scheduled",
+                  "completed"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repair Status"
           }
         },
         "additionalProperties": false,
@@ -1176,13 +1192,11 @@
               {
                 "type": "string",
                 "enum": [
-                  "open",
-                  "repair_scheduled",
-                  "repaired",
-                  "user_reported_submitted",
-                  "user_reported_approved",
-                  "user_reported_denied",
-                  "resolved"
+                  "draft",
+                  "gathering_evidence",
+                  "filed_by_user",
+                  "insurer_decision_received",
+                  "resolved_without_filing"
                 ]
               },
               {
@@ -1190,6 +1204,23 @@
               }
             ],
             "title": "Status"
+          },
+          "insurer_outcome": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "unknown",
+                  "approved",
+                  "partially_approved",
+                  "denied"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Insurer Outcome"
           },
           "facts": {
             "$ref": "#/components/schemas/IncidentFacts"

@@ -49,7 +49,7 @@ export default function Landing() {
               </div>
               <div className="flex items-start gap-3 border-t pt-4 text-xs leading-5 text-muted-foreground">
                 <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-                <p>Uploads go directly to private document storage. Claimwise does not read or extract policy details yet.</p>
+                <p>Your original PDF stays in your private policy folder.</p>
               </div>
             </aside>
           </div>
@@ -70,7 +70,7 @@ export default function Landing() {
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-primary"><FileText className="h-5 w-5" aria-hidden /></span>
                 <div><h3 className="font-semibold">The original stays yours</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">Download the document you uploaded whenever you need to refer back to it.</p></div>
               </article>
-              <p className="text-sm leading-6 text-muted-foreground sm:col-span-2">Today Claimwise is for secure document storage and details you enter yourself. Automatic extraction, claim advice, and insurer decisions are not part of this workspace.</p>
+              <p className="text-sm leading-6 text-muted-foreground sm:col-span-2">Today Claimwise is for secure document storage and details you enter yourself. Only your insurer can decide a claim.</p>
             </div>
           </div>
         </section>

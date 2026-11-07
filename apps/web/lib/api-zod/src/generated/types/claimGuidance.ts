@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ClaimGuidanceState } from './claimGuidanceState';
+import type { ClaimWorkflow } from './claimWorkflow';
+import type { PolicyPassage } from './policyPassage';
 
 export interface ClaimGuidance {
   id: string;
@@ -13,6 +15,8 @@ export interface ClaimGuidance {
   messageId: string;
   /** @nullable */
   content: string | null;
+  workflow?: ClaimWorkflow;
+  sources: PolicyPassage[];
   state: ClaimGuidanceState;
   createdAt: string;
   updatedAt: string;

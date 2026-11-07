@@ -1,3 +1,6 @@
+import { PolicySearch } from '@/components/policy-search';
+import { PolicyDeclarations, policyDetailsPath } from '@/components/policy-declarations';
+import { Link } from 'wouter';
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getListPoliciesQueryKey, useCompletePolicyUpload, useInitiatePolicyUpload, useListPolicies } from '@workspace/api-client-react';
@@ -28,19 +31,16 @@ function formatDate(date: string) {
 
 function PolicyRow({ policy }: { policy: Policy }) {
   return (
-    <article data-testid={`card-policy-${policy.id}`} className="flex flex-col gap-4 rounded-2xl border border-card-border bg-card p-5 sm:flex-row sm:items-center">
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-secondary text-primary"><FileText className="h-5 w-5" aria-hidden /></span>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 data-testid={`text-policy-label-${policy.id}`} className="font-semibold">{policy.label}</h3>
-          <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground"><Check className="h-3 w-3" aria-hidden /> Saved</span>
-        </div>
-        <p className="mt-1 truncate text-sm text-muted-foreground">{policy.fileName}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{formatBytes(policy.size)} <span aria-hidden>·</span> Added {formatDate(policy.createdAt)}{policy.deductible !== null ? ` · Deductible ${new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(policy.deductible)}` : ''}</p>
+    <article data-testid={`card-policy-${policy.id}`} className="min-w-0 rounded-xl border border-card-border bg-background/60 p-4">
+      <h3 data-testid={`text-policy-label-${policy.id}`} className="font-semibold leading-snug [overflow-wrap:anywhere]">{policy.label}</h3>
+      <p className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">{policy.fileName}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{formatBytes(policy.size)} · Saved {formatDate(policy.createdAt)}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t pt-2 text-sm font-semibold text-primary">
+        <Link href={policyDetailsPath(policy.id)} aria-label={`View policy details for ${policy.label}`} className="py-1 hover:underline">View policy details</Link>
+        <a data-testid={`link-download-policy-${policy.id}`} href={documentHref(policy.documentUrl)} download={policy.fileName} className="inline-flex items-center gap-1 py-1 hover:underline">
+          <ArrowDownToLine className="h-4 w-4" aria-hidden /> Download PDF
+        </a>
       </div>
-      <a data-testid={`link-download-policy-${policy.id}`} href={documentHref(policy.documentUrl)} download={policy.fileName} className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-semibold text-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-        <ArrowDownToLine className="h-4 w-4" aria-hidden /> Download PDF
-      </a>
     </article>
   );
 }
@@ -117,7 +117,7 @@ function UploadOutcome({
 
   useEffect(() => {
     headingRef.current?.focus();
-    if (verified) document.title = 'Successfully Uploaded — Claimwise';
+    if (verified) document.title = 'Saved policy — Claimwise';
     else if (kind === 'failed') document.title = 'Upload Failed — Claimwise';
     else if (checking) document.title = 'Checking saved policy — Claimwise';
     else if (lookupError) document.title = 'Couldn’t verify save — Claimwise';
@@ -137,32 +137,32 @@ function UploadOutcome({
 
   if (kind === 'success' && policy) {
     return (
-      <section data-testid="panel-upload-success" role="status" aria-live="polite" className="mx-auto max-w-3xl overflow-hidden rounded-3xl border border-[hsl(155_24%_75%)] bg-[hsl(150_28%_95%)]">
+      <section data-testid="panel-upload-success" className="mx-auto max-w-3xl overflow-hidden rounded-3xl border border-[hsl(155_24%_75%)] bg-[hsl(150_28%_95%)]">
         <div className="h-2 bg-primary" />
         <div className="p-6 sm:p-10">
           <div className="flex items-start gap-4">
             <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-card text-primary"><CheckCircle2 className="h-6 w-6" aria-hidden /></span>
             <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Saved to your private folder</p>
-              <h1 ref={headingRef} tabIndex={-1} data-testid="text-upload-outcome-title" className="mt-2 font-display text-3xl leading-tight sm:text-4xl">Successfully Uploaded</h1>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">This policy is confirmed on your Dashboard. Your original PDF is ready whenever you need it.</p>
+              <h1 ref={headingRef} tabIndex={-1} data-testid="text-upload-outcome-title" className="mt-2 font-display text-3xl leading-tight sm:text-4xl">Policy saved</h1>
             </div>
           </div>
           <article data-testid={`card-uploaded-policy-${policy.id}`} className="mt-7 flex flex-col gap-4 rounded-2xl border border-[hsl(155_24%_82%)] bg-card p-4 sm:flex-row sm:items-center">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-secondary text-primary"><FileText className="h-5 w-5" aria-hidden /></span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="truncate font-semibold">{policy.label}</h2>
+                <h2 className="font-semibold [overflow-wrap:anywhere]">{policy.label}</h2>
                 <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground"><Check className="h-3 w-3" aria-hidden /> Saved</span>
               </div>
-              <p className="mt-1 truncate text-sm text-muted-foreground">{policy.fileName}</p>
+              <p className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">{policy.fileName}</p>
               <p className="mt-1 text-xs text-muted-foreground">{formatBytes(policy.size)} <span aria-hidden>·</span> Added {formatDate(policy.createdAt)}</p>
             </div>
             <a data-testid="link-outcome-download" href={documentHref(policy.documentUrl)} download={policy.fileName} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold text-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
               <ArrowDownToLine className="h-4 w-4" aria-hidden /> Download PDF
             </a>
           </article>
-          <p className="mt-5 text-xs leading-5 text-muted-foreground">Claimwise stores the original document and details you entered; it has not interpreted your coverage.</p>
+          <PolicyDeclarations policy={policy} />
+          <PolicySearch key={policy.id} policy={policy} />
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
             <Btn data-testid="button-outcome-my-policies" onClick={onPolicies}>Dashboard <ArrowRight className="h-4 w-4" aria-hidden /></Btn>
             <Btn data-testid="button-outcome-upload-another" variant="outline" onClick={onUploadAnother}>Upload another</Btn>
@@ -258,7 +258,7 @@ export function UploadScreen({
   });
   const busy = stage === 'requesting' || stage === 'uploading' || stage === 'saving';
   const listedPolicy = policyId ? policies?.find((item) => item.id === policyId) : undefined;
-  const confirmedPolicy = policyId && saved?.id === policyId ? saved : listedPolicy;
+  const confirmedPolicy = listedPolicy ?? (saved?.id === policyId ? saved : undefined) ?? undefined;
 
   const acceptFile = (next: File | undefined) => {
     if (busy || !next) return;
@@ -381,7 +381,7 @@ export function UploadScreen({
         <div className="max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-primary">Your private policy folder</p>
           <h1 className="mt-3 font-display text-4xl leading-tight sm:text-5xl">Add your policy</h1>
-          <p className="mt-3 max-w-xl text-base leading-7 text-muted-foreground">Store the PDF you may need after a loss. We’ll keep the original document available to you; automatic policy reading isn’t available yet.</p>
+          <p className="mt-3 max-w-xl text-base leading-7 text-muted-foreground">{import.meta.env.VITE_LOCAL_POLICY_SEARCH ? 'Save your policy PDF and search its text for the clauses you need after a loss.' : 'Store the original policy PDF in your private folder.'}</p>
         </div>
         <div className="rounded-2xl border bg-card px-4 py-3 text-sm text-muted-foreground">
           <span className="flex items-center gap-2 font-semibold text-foreground"><LockKeyhole className="h-4 w-4 text-primary" aria-hidden /> Private document storage</span>
@@ -424,15 +424,15 @@ export function UploadScreen({
               <div>
                 <label htmlFor="policy-deductible" className="text-sm font-semibold">Deductible <span className="font-normal text-muted-foreground">(optional)</span></label>
                 <div className="relative mt-2"><span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span><input id="policy-deductible" data-testid="input-policy-deductible" className={cx(inputCls, 'pl-7')} type="number" min="0" max="100000000" step="0.01" inputMode="decimal" value={deductible} onChange={(event) => setDeductible(event.target.value)} disabled={busy} /></div>
-                <p className="mt-1 text-xs text-muted-foreground">Enter it manually from your documents. Nothing is extracted.</p>
+                <p className="mt-1 text-xs text-muted-foreground">Enter the amount from your declarations page.</p>
               </div>
             </div>
             {formError && <p role="alert" className="mt-4 rounded-lg bg-destructive/5 px-3 py-2 text-sm text-destructive">{formError}</p>}
             {transferError && <p role="alert" data-testid="text-upload-error" className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">{transferError}</p>}
             <div className="mt-6 flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
-              <p className="max-w-sm text-xs leading-5 text-muted-foreground">Your PDF is transferred directly to private document storage. Claimwise does not analyze it yet.</p>
+              <p className="max-w-sm text-xs leading-5 text-muted-foreground">{import.meta.env.VITE_LOCAL_POLICY_SEARCH ? 'Text-based PDFs can be searched after indexing. Scanned images are not supported.' : 'Your original PDF is saved in private document storage.'}</p>
               <Btn type="submit" data-testid="button-save-policy" disabled={busy || !file} className="min-w-44 justify-center">
-                {stage === 'requesting' ? 'Preparing upload…' : stage === 'uploading' ? `Uploading ${progress}%` : stage === 'saving' ? 'Saving policy…' : stage === 'error' ? 'Retry save' : 'Save policy'}
+                {stage === 'requesting' ? 'Preparing upload…' : stage === 'uploading' ? `Uploading ${progress}%` : stage === 'saving' ? (import.meta.env.VITE_LOCAL_POLICY_SEARCH ? 'Saving and indexing…' : 'Saving policy…') : stage === 'error' ? 'Retry save' : 'Save policy'}
                 {stage !== 'requesting' && stage !== 'uploading' && stage !== 'saving' && <ArrowRight className="h-4 w-4" aria-hidden />}
               </Btn>
             </div>

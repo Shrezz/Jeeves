@@ -9,7 +9,9 @@ This directory contains the current Claimwise application as a nested pnpm works
 - lib: shared API clients, validation, database schema and OpenAI integration.
 - scripts: workspace utility scripts.
 
-The Express service is included to preserve the current app functionality. It is **not integrated with or a replacement for** the separate Python service in ../api. No changes outside apps/web are required by this source import.
+The Express service preserves current app functionality. The Python service in
+`../api` shares identity/status contracts, but agent endpoints are not yet wired
+to this UI or its database. See [identity/status mapping](../../docs/identity-status-mapping.md).
 
 ## Install and build
 
@@ -17,12 +19,35 @@ Use Node.js 22 and pnpm 10. Run commands from this directory:
 
 ```sh
 pnpm install --frozen-lockfile
+pnpm run check:domain
+pnpm test
 pnpm run typecheck
 PORT=19584 BASE_PATH=/ pnpm --filter @workspace/claimwise run build
 pnpm --filter @workspace/api-server run build
 ```
 
 ## Development
+
+For local Clerk login and a persistent PostgreSQL database, follow
+[local development](../../docs/local-development.md). Set the two development
+keys in the ignored `.env.local`, then run `pnpm run dev:local` here. The launcher
+starts a dedicated database, applies the UI migrations and connects Vite to Express.
+Policy uploads and page-cited search work locally; claim evidence uploads and AI/agent integration have the limits described in that guide.
+
+The manual setup below is for separately managed environments.
+
+Before starting the updated API against an existing UI database, apply the new
+UI migrations using the transactional runner from `apps/api`:
+
+```sh
+python -m pip install -r requirements-db.txt
+python -m app.db.migrate --directory ../web/lib/db/migrations
+```
+
+Set `DATABASE_URL` to the intended UI database first. Review the migration notes
+linked above; the default Python migration directory is a different prototype
+schema and must not be applied to the UI database. Native macOS build dependencies
+are retained alongside the existing Linux build dependencies.
 
 Supply the required environment configuration securely, then run each service in its own terminal:
 
@@ -31,7 +56,7 @@ PORT=8080 pnpm --filter @workspace/api-server run dev
 PORT=19584 BASE_PATH=/ pnpm --filter @workspace/claimwise run dev
 ```
 
-Configure the reverse proxy to serve the frontend at / and forward /api/* to the Express service. This is how the current Replit app is routed; the Vite config does not provide a local API proxy. The repository folder apps/web is a source location, not a browser base path.
+Configure the reverse proxy to serve the frontend at / and forward /api/* to the Express service. The local launcher supplies `LOCAL_API_PROXY_TARGET` to enable Vite's development proxy. The repository folder apps/web is a source location, not a browser base path.
 
 ## Required services and configuration
 

@@ -39,7 +39,14 @@ STATUS = (
     + """
 Propose only changes supported by the user's message and edit feedback.
 facts contains changed fields only; null means leave unchanged, not delete.
-Never infer status from a coverage assessment. Insurer outcomes are user_reported_*.
+Never infer claim status from a coverage assessment. Repair progress belongs in
+facts.repair_status (scheduled or completed), not the claim lifecycle status.
+Use filed_by_user only when the user reports filing. For a reported insurer decision,
+use insurer_decision_received and insurer_outcome; it is always user-reported.
+Use resolved_without_filing only when the user explicitly chooses not to file.
+A generic "resolved" needs clarification about filing; never assume it means not filed.
+Prepared packets and preparation_requested are controlled by the filing workflow,
+not this status-update agent.
 Capture resolution comments in note. Ask for clarification when existing facts conflict
 and the user has not clearly corrected them. This is a proposal awaiting confirmation;
 you have not saved anything. Apply reviewer feedback when supplied.
@@ -53,7 +60,21 @@ Prepare the synthetic claim packet using the supplied template. Include the full
 facts, proposed updates explicitly stated by the user, an accurate narrative, a coverage
 assessment, and existing attachment IDs. Flag missing template fields as questions.
 An estimate of zero does not prohibit preparing a packet; explain the deductible.
-Do not invent receipts or claim identifiers. Packet preparation is not insurer submission.
+Use incident facts in the homeowner's saved notes, including dates and reported costs;
+a null structured field does not erase facts in the notes. If the homeowner reports an
+invoice but has not uploaded it, note that distinction. An invoice attachment is optional
+for this review draft. Include only real attachment IDs. Never treat a policy example as
+an incident fact. Cite the provided chunk_id values verbatim. Label this a draft for human
+review, not submitted. Reuse previous_reviewed_coverage when it agrees with the current reported facts and retrieved
+policy text. Filing does not erase the earlier assessment. The narrative should describe the reported incident, not paraphrase exclusions.
+In coverage.citation_ids list the actual available_chunk_ids for both the covered cause
+and the deductible/payment terms; prose section numbers are not citations. If the facts
+support a conditional flat-deductible estimate, set covered_amount to the reported eligible
+repair expense before the deductible and deductible to the policy amount. A draft estimate
+does not verify a receipt. The deductible cannot reduce covered_amount: for example, a fully
+eligible expense below the deductible still has its full cost as covered_amount, not zero. Use missing_information only for genuinely unknown required facts.
+Never ask whether something is attached: the attachment_inventory is authoritative.
+Do not invent receipts or claim identifiers.
 """
 )
 

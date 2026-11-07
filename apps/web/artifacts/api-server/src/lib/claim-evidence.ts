@@ -2,7 +2,7 @@ import type { File } from "@google-cloud/storage";
 import { pipeline } from "node:stream/promises";
 import { fileTypeFromBuffer } from "file-type";
 import { InvalidPolicyDocument, readPolicyPdf } from "./policyDocuments";
-import { ClaimRequestError } from "./claims";
+import { ClaimRequestError } from "./claim-errors";
 
 export const MAX_EVIDENCE_BYTES = 20 * 1024 * 1024;
 export const MAX_VIDEO_BYTES = 100 * 1024 * 1024;

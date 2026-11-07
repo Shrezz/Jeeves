@@ -5,6 +5,11 @@
 Interactive docs are at `/docs`; the generated contract is at `/openapi.json` and
 `packages/contracts/openapi.json`. Public schemas live in `app/schemas/workflow_api.py`.
 
+Claim lifecycle values now follow the [shared identity/status contract](identity-status-mapping.md).
+Both APIs use canonical codes such as `gathering_evidence`; the UI renders friendly
+labels. Repair progress and reported insurer outcomes are separate from claim and
+run statuses. Clerk principal verification for the Python API is still pending.
+
 | Method and path | Purpose |
 | --- | --- |
 | `POST /agent/runs` | Start a request; wait until a reviewed result, human pause, or failure. |

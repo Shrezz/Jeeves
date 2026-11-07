@@ -76,14 +76,14 @@ router.post("/claims/:id/submit", async (req, res) => {
       .where(eq(claimReviewsTable.claimId, claim.id));
     const snapshot = await loadClaimReview(tx, claim);
     const submittedAt = new Date();
-    const status = claim.status === "Filed by me with insurer" || claim.status === "Insurer decision received"
-      ? claim.status : "Submitted in Claimwise";
+    const status = claim.status === "filed_by_user" || claim.status === "insurer_decision_received"
+      ? claim.status : "submitted_in_claimwise";
     const notice = "Submitted in Claimwise. Not sent to an insurer.";
     const [updatedClaim] = await tx.update(claimsTable).set({ status, latestUpdate: notice, updatedAt: submittedAt })
       .where(eq(claimsTable.id, claim.id)).returning();
     await tx.insert(claimMessagesTable).values({
       id: randomUUID(), claimId: claim.id, kind: "status_update", content: notice,
-      status: "Submitted in Claimwise", processingStatus: "recorded",
+      status: "submitted_in_claimwise", processingStatus: "recorded",
     });
     const submitted = SubmitClaimReviewResponse.parse({
       ...snapshot, submittedAt: submittedAt.toISOString(),

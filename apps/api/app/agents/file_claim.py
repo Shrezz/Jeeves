@@ -25,6 +25,13 @@ async def file_claim(state: AgentState, runtime: Runtime[AgentContext]) -> Agent
     evidence = await policy_evidence(state, context, claim)
     payload = model_payload(state, claim, evidence)
     payload["template"] = context.template.model_dump(mode="json")
+    if context.prior_coverage:
+        payload["previous_reviewed_coverage"] = context.prior_coverage
+    payload["available_chunk_ids"] = [item.chunk_id for item in evidence]
+    payload["attachment_inventory"] = {
+        "uploaded_ids": claim.attachment_ids,
+        "note": "This is the complete list. An empty list means no files have been uploaded.",
+    }
     draft = await context.generator.generate(
         prompt=PACKET, payload=payload, output_type=PacketDraft
     )
