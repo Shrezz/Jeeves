@@ -285,7 +285,7 @@ class FixtureModel:
         raise ValueError("Unsupported fixture output type")
 
 
-def fixture_context(store: FixtureStore, generator=None, reviewer=None):
+def fixture_context(store: FixtureStore, generator=None, reviewer=None, web_search=None):
     async def resolve(user_id: str, policy_id: str, claim_id: str | None) -> AgentContext:
         if user_id != "demo-user" or policy_id != "demo-policy":
             raise PermissionError("Policy not found")
@@ -301,6 +301,7 @@ def fixture_context(store: FixtureStore, generator=None, reviewer=None):
             policies=store,
             actions=store,
             evidence_cache=store.cache,
+            web_search=web_search,
         )
 
     return resolve

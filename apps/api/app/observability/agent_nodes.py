@@ -17,6 +17,7 @@ from .tracing import capture_synthetic_content, observation, sanitize_content
 
 _NODES = {
     "begin_request",
+    "web_search",
     "router",
     "answer_claim",
     "file_claim",

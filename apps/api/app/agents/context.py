@@ -42,6 +42,11 @@ class PolicyReader(Protocol):
         """Retrieve full relevant passages, scoped to this owner and policy."""
 
 
+class WebSearch(Protocol):
+    async def search(self, query: str) -> list[dict[str, str]]:
+        """Search public sources using the explicitly supplied query."""
+
+
 class ApprovedActions(Protocol):
     async def commit(
         self,
@@ -72,3 +77,4 @@ class AgentContext:
     template: ClaimTemplate = field(default_factory=ClaimTemplate)
     evidence_cache: EvidenceCache = field(default_factory=EvidenceCache)
     actions: ApprovedActions | None = None
+    web_search: WebSearch | None = None

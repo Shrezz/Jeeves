@@ -11,6 +11,7 @@ from app.agents.checkpoints import memory_checkpointer
 from app.agents.graph import build_graph
 from app.services.fixtures import FixtureStore, fixture_context
 from app.services.nebius import NebiusModel
+from app.services.keenable import KeenableSearch
 from app.services.workflow import WorkflowService
 
 
@@ -54,7 +55,12 @@ async def demo_backend():
             )
         service = WorkflowService(
             build_graph(memory_checkpointer()),
-            fixture_context(store, generator, reviewer),
+            fixture_context(
+                store, generator, reviewer,
+                web_search=KeenableSearch(os.environ.get("KEENABLE_API_KEY", ""))
+                if os.environ.get("KEENABLE_SEARCH_ENABLED", "false").lower() == "true"
+                else None,
+            ),
             artifacts=store,
             mode="fixture",
             model_mode=model_mode,

@@ -30,6 +30,7 @@ class AgentRequest(Contract):
     message: Text
     claim_id: Text | None = None
     explicit_route: Route | None = None
+    web_search_query: Text | None = Field(default=None, max_length=500)
 
 
 class RouteDecision(Contract):

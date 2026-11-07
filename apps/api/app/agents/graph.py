@@ -13,6 +13,7 @@ from .lifecycle import begin_request, clarify, commit_action
 from .reviewer import reviewer
 from .router import router
 from .save_claim_status import save_claim_status
+from .web_search import web_search
 from .state import AgentState
 
 
@@ -45,6 +46,7 @@ def build_graph(checkpointer: BaseCheckpointSaver):
     graph = StateGraph(AgentState, context_schema=AgentContext)
     for name, node in {
         "begin_request": begin_request,
+        "web_search": web_search,
         "router": router,
         "answer_claim": answer_claim,
         "save_claim_status": save_claim_status,
@@ -56,7 +58,8 @@ def build_graph(checkpointer: BaseCheckpointSaver):
     }.items():
         graph.add_node(name, instrument_node(name, node))
     graph.add_edge(START, "begin_request")
-    graph.add_edge("begin_request", "router")
+    graph.add_edge("begin_request", "web_search")
+    graph.add_edge("web_search", "router")
     routes = ["answer_claim", "save_claim_status", "file_claim"]
     graph.add_conditional_edges("router", selected_agent, routes + ["clarify"])
     for name in routes:

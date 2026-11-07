@@ -84,6 +84,14 @@ token counts returned by Nebius. They omit policy text, messages, and credential
 counts are not fabricated for fixtures. Provider prices/cost totals are not assumed.
 With `LANGFUSE_TRACING_ENABLED=true` and valid credentials, Langfuse traces also cover workflow nodes, retrieval, and Nebius generations. Only actual provider usage is captured; model cost requires configured pricing. See `architecture.md` for the opt-in synthetic-content policy and `evals/README.md` for experiment setup.
 
+## Optional public web search
+
+In demo mode, set `KEENABLE_SEARCH_ENABLED=true` and optionally set `KEENABLE_API_KEY` in the local environment. The keyless public API is rate-limited; an API key uses Keenable's authenticated endpoint and may incur usage charges. Supply `web_search_query` in a start-run request only when a public search is wanted. The exact query is sent to Keenable, so do not include policyholder information, claim details, or other confidential content. The app does not automatically send the claim or policy as a query.
+
+The agent runs one bounded search and returns up to three external links in `web_search`; this field is separate from policy `citations`. Web results are not passed into coverage generation or review and cannot establish coverage. A provider failure or disabled integration returns `unavailable` and leaves the claim workflow running. Langfuse records the provider and result count, not the search query or results. The existing frontend does not yet expose the search request or display these results. Production context factories must inject a `KeenableSearch` instance explicitly.
+
+API reference: https://docs.keenable.ai/api-reference/search.md
+
 ## Verification
 
 From `apps/api`, use `uv sync --locked --group dev` then `uv run --locked pytest -q`.

@@ -26,6 +26,18 @@ class StartRun(Contract):
     claim_id: Text | None = None
     message: Text = Field(max_length=12000)
     explicit_route: Route | None = None
+    web_search_query: Text | None = Field(default=None, max_length=500)
+
+
+class WebSearchResult(Contract):
+    title: str
+    url: str
+    snippet: str
+
+
+class WebSearchReport(Contract):
+    status: Literal["ok", "unavailable"]
+    results: list[WebSearchResult] = Field(default_factory=list)
 
 
 class ResumeRun(Contract):
@@ -70,6 +82,7 @@ class RunView(Contract):
     answer: ReviewedAnswer | None = None
     action_result: ActionResult | None = None
     citations: list[Citation] = Field(default_factory=list)
+    web_search: WebSearchReport | None = None
     pending: PendingAction | None = None
     issues: list[ReviewIssue] = Field(default_factory=list)
     error: str | None = None

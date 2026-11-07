@@ -92,6 +92,7 @@ class WorkflowService:
                         message=request.message,
                         claim_id=request.claim_id,
                         explicit_route=request.explicit_route,
+                        web_search_query=request.web_search_query,
                     ),
                 },
             )
@@ -194,6 +195,7 @@ class WorkflowService:
             "model_mode": self.model_mode,
             "stages": list(run.stages),
             "route": route.route if route else None,
+            "web_search": state.get("web_search"),
         }
         if run.running:
             return RunView(**base, status="running")

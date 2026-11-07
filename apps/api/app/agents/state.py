@@ -26,6 +26,7 @@ class AgentState(TypedDict, total=False):
     route: RouteDecision
     claim: ClaimSnapshot | None
     evidence: list[Citation]
+    web_search: dict | None
     draft: Draft | None
     estimate: PaymentEstimate | None
     artifact_version: int
