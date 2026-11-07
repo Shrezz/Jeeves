@@ -23,6 +23,8 @@ Draft = CoverageDraft | StatusDraft | PacketDraft
 class AgentState(TypedDict, total=False):
     request: Required[AgentRequest]
     chat_reply: dict
+    scope_decision: Literal["allowed", "out_of_scope"]
+    clarified_repair_status: Literal["pending", "scheduled", "completed"] | None
     run_id: str
     route: RouteDecision
     claim: ClaimSnapshot | None

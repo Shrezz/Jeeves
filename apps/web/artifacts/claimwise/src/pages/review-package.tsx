@@ -1,4 +1,5 @@
 import { WorkflowReview } from '@/components/workflow-review';
+import { isWorkflowReview } from '@/lib/workflow-review-filter';
 import { claimStatusLabel } from "@workspace/domain";
 import { useEffect, useState } from 'react';
 import { Link } from 'wouter';
@@ -243,7 +244,7 @@ export default function ReviewPackagePage() {
   });
   const review = claimQuery.data?.workspace.claim.id === claimId ? claimQuery.data : undefined;
   const workspace = review?.workspace;
-  const reviews = workspace?.guidance.filter(g => g.workflow && (g.workflow.route !== 'answer_claim' || g.workflow.phase === 'needs_information')) ?? [];
+  const reviews = workspace?.guidance.filter(isWorkflowReview) ?? [];
   const currentReview = selectedRun ? reviews.find(g => g.id === selectedRun) : reviews.at(-1);
   const isClaimLoading = !!claimId && (claimQuery.isLoading || (!workspace && claimQuery.isFetching));
   const listLoading = claimsQuery.isLoading;

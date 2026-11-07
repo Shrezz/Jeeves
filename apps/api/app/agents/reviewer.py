@@ -35,7 +35,9 @@ async def reviewer(state: AgentState, runtime: Runtime[AgentContext]) -> AgentSt
         assessment = None
     elif isinstance(draft, PacketDraft) and route == "file_claim" and claim:
         checklist = packet.CHECKLIST
-        issues, questions = packet.validate(draft, claim, evidence, context)
+        issues, questions = packet.validate(
+            draft, claim, evidence, context, state["request"].message
+        )
         assessment = draft.coverage
     else:
         raise ValueError("Draft type, claim context, and review route must agree")
@@ -50,14 +52,8 @@ async def reviewer(state: AgentState, runtime: Runtime[AgentContext]) -> AgentSt
             payload["previous_reviewed_coverage"] = context.prior_coverage
         payload["draft"] = draft.model_dump(mode="json")
         payload["template"] = context.template.model_dump(mode="json")
-        # Review a conditional estimate alongside the generator's proposed questions.
-        # It may be published only if the reviewer deems the packet fit for human review.
-        basis = (
-            assessment.model_copy(update={"missing_information": []})
-            if isinstance(draft, PacketDraft)
-            else assessment
-        )
-        estimate = calculate_estimate(basis) if basis else None
+        # Unknown coverage inputs must never be cleared just to produce an estimate.
+        estimate = calculate_estimate(assessment) if assessment else None
         payload["calculated_estimate"] = estimate.model_dump(mode="json") if estimate else None
         verdict = await context.reviewer.generate(
             prompt=REVIEW + checklist,
@@ -135,7 +131,5 @@ async def reviewer(state: AgentState, runtime: Runtime[AgentContext]) -> AgentSt
     else:
         update["phase"] = "human_review"
         if isinstance(draft, PacketDraft):
-            update["estimate"] = calculate_estimate(
-                draft.coverage.model_copy(update={"missing_information": []})
-            )
+            update["estimate"] = calculate_estimate(draft.coverage)
     return update

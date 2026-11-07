@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import contextmanager
 
 import httpx
 from fastapi.testclient import TestClient
@@ -12,15 +13,54 @@ from app.services.keenable import KeenableSearch
 from app.services.workflow import WorkflowService
 
 
+def test_search_trace_content_is_scoped_to_synthetic_claims(monkeypatch):
+    from app.services import keenable
+
+    captured = []
+
+    class Span:
+        def update(self, **kwargs):
+            captured[-1].update(kwargs)
+
+    @contextmanager
+    def fake_observation(name, **kwargs):
+        captured.append(kwargs)
+        yield Span()
+
+    monkeypatch.setattr(keenable, "observation", fake_observation)
+    search = KeenableSearch(
+        "test-key",
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200, json={"results": [{"title": "Public", "url": "https://example.org"}]}
+            )
+        ),
+    )
+    monkeypatch.setattr(keenable, "capture_synthetic_content", lambda: False)
+    asyncio.run(search.search("fictional query"))
+    assert captured[-1]["input"] == {"query_length": 15}
+    assert captured[-1]["output"] == {"result_count": 1}
+
+    monkeypatch.setattr(keenable, "capture_synthetic_content", lambda: True)
+    asyncio.run(search.search("fictional query"))
+    assert captured[-1]["input"] == {"query": "fictional query"}
+    assert captured[-1]["output"]["results"][0]["url"] == "https://example.org"
+
+
 def test_keenable_search_sends_only_explicit_query():
     def handler(request):
         assert request.url.path == "/v1/search"
         assert request.headers["X-API-Key"] == "test-key"
         assert b"public insurance guidance" in request.content
         assert b"private-claim" not in request.content
-        return httpx.Response(200, json={"results": [
-            {"title": "Guidance", "url": "https://example.org/guidance", "snippet": "Info"}
-        ]})
+        return httpx.Response(
+            200,
+            json={
+                "results": [
+                    {"title": "Guidance", "url": "https://example.org/guidance", "snippet": "Info"}
+                ]
+            },
+        )
 
     search = KeenableSearch("test-key", transport=httpx.MockTransport(handler))
     assert asyncio.run(search.search("public insurance guidance")) == [
@@ -28,21 +68,73 @@ def test_keenable_search_sends_only_explicit_query():
     ]
 
 
+def test_keenable_rejects_unsafe_result_links():
+    def handler(request):
+        return httpx.Response(
+            200,
+            json={
+                "results": [
+                    {"title": "bad", "url": "javascript:alert(1)", "snippet": ""},
+                    {"title": "bad", "url": "https://name:password@example.com", "snippet": ""},
+                    {"title": "safe", "url": "https://example.com/guidance", "snippet": "ok"},
+                ]
+            },
+        )
+
+    search = KeenableSearch("test-key", transport=httpx.MockTransport(handler))
+    assert asyncio.run(search.search("general guidance")) == [
+        {"title": "safe", "url": "https://example.com/guidance", "snippet": "ok"}
+    ]
+
+
+def test_ui_projection_keeps_public_results_separate_from_policy_sources():
+    from types import SimpleNamespace
+
+    from app.schemas.agents import RouteDecision
+    from app.services.ui_workflow import project
+
+    snapshot = SimpleNamespace(
+        values={
+            "phase": "answer_ready",
+            "route": RouteDecision(route="answer_claim"),
+            "web_search": {
+                "status": "ok",
+                "results": [{"title": "Public", "url": "https://example.com", "snippet": "Info"}],
+            },
+            "chat_reply": {"content": "Fictional policy answer", "sources": []},
+        },
+        interrupts=[],
+    )
+    result = project(snapshot, {})
+    assert result["sources"] == []
+    assert result["workflow"]["publicWebSearch"]["results"][0]["url"] == "https://example.com"
+
+
 def test_agent_opt_in_search_is_separate_from_policy_citations():
     class Search:
         async def search(self, query):
-            assert query == "public guidance"
+            assert query == "public insurance guidance"
             return [{"title": "Public", "url": "https://example.org", "snippet": "Context"}]
 
     store = FixtureStore.seeded()
-    service = WorkflowService(build_graph(memory_checkpointer()), fixture_context(store, web_search=Search()),
-                              artifacts=store, mode="fixture", model_mode="fixture")
+    service = WorkflowService(
+        build_graph(memory_checkpointer()),
+        fixture_context(store, web_search=Search()),
+        artifacts=store,
+        mode="fixture",
+        model_mode="fixture",
+    )
     with TestClient(create_app(service, demo_auth("test-token"))) as client:
-        response = client.post("/agent/runs", headers={"Authorization": "Bearer test-token"}, json={
-            "request_key": "search-case", "policy_id": "demo-policy",
-            "message": "Is sudden accidental broken-window damage covered?",
-            "web_search_query": "public guidance",
-        })
+        response = client.post(
+            "/agent/runs",
+            headers={"Authorization": "Bearer test-token"},
+            json={
+                "request_key": "search-case",
+                "policy_id": "demo-policy",
+                "message": "Is sudden accidental broken-window damage covered?",
+                "web_search_query": "public insurance guidance",
+            },
+        )
     assert response.status_code == 200
     body = response.json()
     assert body["web_search"]["status"] == "ok"
@@ -56,14 +148,24 @@ def test_agent_search_failure_does_not_break_claim():
             raise httpx.ConnectError("provider unavailable")
 
     store = FixtureStore.seeded()
-    service = WorkflowService(build_graph(memory_checkpointer()), fixture_context(store, web_search=Search()),
-                              artifacts=store, mode="fixture", model_mode="fixture")
+    service = WorkflowService(
+        build_graph(memory_checkpointer()),
+        fixture_context(store, web_search=Search()),
+        artifacts=store,
+        mode="fixture",
+        model_mode="fixture",
+    )
     with TestClient(create_app(service, demo_auth("test-token"))) as client:
-        response = client.post("/agent/runs", headers={"Authorization": "Bearer test-token"}, json={
-            "request_key": "failed-search", "policy_id": "demo-policy",
-            "message": "Is sudden accidental broken-window damage covered?",
-            "web_search_query": "public guidance",
-        })
+        response = client.post(
+            "/agent/runs",
+            headers={"Authorization": "Bearer test-token"},
+            json={
+                "request_key": "failed-search",
+                "policy_id": "demo-policy",
+                "message": "Is sudden accidental broken-window damage covered?",
+                "web_search_query": "public insurance guidance",
+            },
+        )
     assert response.status_code == 200
     assert response.json()["web_search"] == {"status": "unavailable", "results": []}
     assert response.json()["status"] != "failed"

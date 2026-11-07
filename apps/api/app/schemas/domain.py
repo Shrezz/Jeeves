@@ -5,7 +5,7 @@ from typing import Literal
 # fmt: off
 ClaimStatus = Literal["draft", "gathering_evidence", "preparation_requested", "prepared", "filed_by_user", "insurer_decision_received", "resolved_without_filing", "submitted_in_claimwise"]
 ManualClaimStatus = Literal["draft", "gathering_evidence", "filed_by_user", "insurer_decision_received", "resolved_without_filing"]
-RepairStatus = Literal["unknown", "scheduled", "completed"]
+RepairStatus = Literal["unknown", "pending", "scheduled", "completed"]
 InsurerOutcome = Literal["unknown", "approved", "partially_approved", "denied"]
 RunStatus = Literal["running", "awaiting_information", "awaiting_review", "completed", "blocked", "rejected", "failed"]
 UploadStatus = Literal["pending", "saved"]

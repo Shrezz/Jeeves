@@ -6,6 +6,7 @@ from langgraph.types import interrupt
 from app.schemas.agents import HumanDecision
 
 from .context import AgentContext
+from .repair_status import reconcile_repair_status
 from .state import AgentState
 from .support import load_claim
 
@@ -59,6 +60,9 @@ async def human_review(state: AgentState, runtime: Runtime[AgentContext]) -> Age
             "review": None,
             "answer": None,
             "revision_count": 0,
+            "clarified_repair_status": reconcile_repair_status(
+                decision.feedback or "", state.get("clarified_repair_status")
+            ),
             "phase": "revision_required",
         }
     return {

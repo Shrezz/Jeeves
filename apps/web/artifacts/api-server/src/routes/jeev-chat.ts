@@ -10,8 +10,8 @@ import {
   GetJeevConversationParams, GetJeevConversationResponse, ListJeevConversationsResponse,
   SendJeevMessageBody, SendJeevMessageParams, SendJeevMessageResponse,
 } from "@workspace/api-zod";
-import { openai } from "@workspace/integrations-openai-ai-server";
 import { ClaimRequestError } from "../lib/claims";
+import { OUT_OF_SCOPE_MESSAGE, includePromptInHistory, promptInScope } from "@workspace/domain";
 
 const router: IRouter = Router();
 const LEASE_MS = 120_000;
@@ -112,11 +112,19 @@ router.post("/jeev/conversations/:id/messages", async (req, res) => {
     const history = (await db.select().from(messages).where(and(
       eq(messages.conversationId, params.data.id), lte(messages.createdAt, prepared.row.createdAt),
     )).orderBy(desc(messages.createdAt), desc(messages.id)).limit(12)).reverse();
+    const hasPriorRelevantTurn = history.some((entry) => entry.id !== prepared.row.id &&
+      entry.replyState === "ready" && entry.reply !== OUT_OF_SCOPE_MESSAGE && promptInScope(entry.content));
+    if (!promptInScope(content, { followup: hasPriorRelevantTurn })) {
+      await db.update(messages).set({ reply: OUT_OF_SCOPE_MESSAGE, replyState: "ready", updatedAt: new Date() })
+        .where(and(eq(messages.id, prepared.row.id), eq(messages.leaseId, leaseId)));
+    } else {
     const transcript: { role: "system" | "user" | "assistant"; content: string }[] = [{ role: "system", content: PROMPT }];
     for (const entry of history) {
+      if (!includePromptInHistory(entry.content, entry.reply)) continue;
       transcript.push({ role: "user", content: entry.content.slice(0, 6000) });
       if (entry.replyState === "ready" && entry.reply) transcript.push({ role: "assistant", content: entry.reply });
     }
+    const { openai } = await import("@workspace/integrations-openai-ai-server");
     const result = await openai.withOptions({ timeout: 45_000, maxRetries: 1 }).chat.completions.create({
       model: "gpt-5.4-mini", max_completion_tokens: 4096, messages: transcript,
     });
@@ -124,6 +132,7 @@ router.post("/jeev/conversations/:id/messages", async (req, res) => {
     if (!reply) throw new Error("EmptyReply");
     await db.update(messages).set({ reply, replyState: "ready", updatedAt: new Date() })
       .where(and(eq(messages.id, prepared.row.id), eq(messages.leaseId, leaseId)));
+    }
   } catch (error) {
     req.log.warn({ errorType: error instanceof Error ? error.name : "Unknown" }, "Jeev reply unavailable; conversation message saved");
     await db.update(messages).set({ replyState: "error", updatedAt: new Date() })

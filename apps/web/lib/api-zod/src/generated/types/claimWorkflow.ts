@@ -7,6 +7,7 @@
  */
 import type { ClaimWorkflowPhase } from './claimWorkflowPhase';
 import type { ClaimWorkflowRoute } from './claimWorkflowRoute';
+import type { PublicWebSearch } from './publicWebSearch';
 import type { WorkflowField } from './workflowField';
 
 export interface ClaimWorkflow {
@@ -16,4 +17,5 @@ export interface ClaimWorkflow {
   version: number;
   narrative?: string;
   fields: WorkflowField[];
+  publicWebSearch?: PublicWebSearch;
 }

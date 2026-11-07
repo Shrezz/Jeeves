@@ -11,7 +11,7 @@ import httpx
 from pydantic import ValidationError
 
 from app.agents.context import Output
-from app.observability.tracing import observation
+from app.observability.tracing import capture_synthetic_content, observation, sanitize_content
 from app.services.chat_guidance import guidance
 from app.services.nebius import NebiusModel
 
@@ -28,10 +28,18 @@ class OllamaModel:
             model=self.model,
             metadata={"provider": "ollama", "schema": output_type.__name__},
         ) as span:
+            if capture_synthetic_content():
+                span.update(input=sanitize_content({"prompt": prompt, "payload": payload}))
+            else:
+                span.update(input={"capture": "metadata_only", "schema": output_type.__name__})
             result = await self._generate(
                 prompt=prompt, payload=payload, output_type=output_type, span=span
             )
-            span.update(output={"validated": True})
+            span.update(
+                output=sanitize_content(result.model_dump(mode="json"))
+                if capture_synthetic_content()
+                else {"validated": True}
+            )
             return result
 
     async def _generate(

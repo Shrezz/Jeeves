@@ -1,5 +1,7 @@
 """Prepare packet content and evidence. This node never submits or exports a claim."""
 
+import re
+
 from langgraph.runtime import Runtime
 
 from app.schemas.agents import PacketDraft
@@ -35,6 +37,30 @@ async def file_claim(state: AgentState, runtime: Runtime[AgentContext]) -> Agent
     draft = await context.generator.generate(
         prompt=PACKET, payload=payload, output_type=PacketDraft
     )
+    clarified_status = state.get("clarified_repair_status")
+    if clarified_status:
+        # Preserve the explicit answer and remove only this redundant question.
+        redundant = re.compile(
+            r"^(?:the )?repair status is unknown(?:; confirmation of completion or pending status is needed)?[.!?]?$",
+            re.IGNORECASE,
+        )
+        draft = draft.model_copy(
+            update={
+                "facts": draft.facts.model_copy(update={"repair_status": clarified_status}),
+                "coverage": draft.coverage.model_copy(
+                    update={
+                        "missing_information": [
+                            q
+                            for q in draft.coverage.missing_information
+                            if not redundant.fullmatch(q.strip())
+                        ]
+                    }
+                ),
+                "missing_information": [
+                    q for q in draft.missing_information if not redundant.fullmatch(q.strip())
+                ],
+            }
+        )
     return draft_update(
         state,
         draft=draft,

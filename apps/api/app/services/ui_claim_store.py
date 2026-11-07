@@ -7,6 +7,7 @@ from pathlib import Path
 
 from psycopg.types.json import Jsonb
 
+from app.agents.prompt_scope import include_in_history
 from app.schemas.agents import ActionResult, ClaimSnapshot, IncidentFacts, PacketDraft
 from app.services.rag.types import Citation
 
@@ -39,6 +40,7 @@ class WebClaimStore:
         if (user_id, claim_id) != (self.owner, self.claim_id):
             raise PermissionError("Claim not found")
         c = await self.record()
+        self.reported_expense_total = c["total_expenses"]
         rows = await (
             await self.db.execute(
                 """SELECT m.content,m.expense,g.content AS reply,g.sources,g.workflow FROM public.claim_messages m
@@ -49,6 +51,7 @@ class WebClaimStore:
                 (claim_id, self.run_id),
             )
         ).fetchall()
+        rows = [r for r in rows if include_in_history(r["content"], r["reply"])]
         self.history = [
             {
                 "homeowner": r["content"][:1000],

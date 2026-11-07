@@ -5,7 +5,7 @@ import { and, count, desc, eq, gt, inArray, lte } from "drizzle-orm";
 import { db, claimsTable, claimMessagesTable, claimEvidenceTable, claimGuidanceTable, policiesTable } from "@workspace/db";
 import { RequestClaimGuidanceBody, RequestClaimGuidanceParams, RequestClaimGuidanceResponse, RespondToClaimReviewBody, RespondToClaimReviewParams } from "@workspace/api-zod";
 import { ClaimRequestError, serializeGuidance } from "../lib/claims";
-import { GUIDANCE_LEASE_MS } from "@workspace/domain";
+import { GUIDANCE_LEASE_MS, OUT_OF_SCOPE_MESSAGE, includePromptInHistory, promptInScope } from "@workspace/domain";
 import { runClaimGraph } from "../lib/reviewed-chat";
 import { CLAIM_GUIDE_PROMPT } from "../lib/claim-guide-prompt";
 
@@ -13,13 +13,15 @@ const router: IRouter = Router();
 
 
 router.post("/claims/:id/guidance", async (req, res): Promise<void> => {
-  if (!process.env.CLAIM_CHAT_ROOT && (!process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || !process.env.AI_INTEGRATIONS_OPENAI_API_KEY)) {
-    res.status(503).json({ error: "AI guidance is not configured. Your message remains saved." });
-    return;
-  }
   const params = RequestClaimGuidanceParams.safeParse(req.params);
   const body = RequestClaimGuidanceBody.safeParse(req.body);
   if (!params.success || !body.success) throw new ClaimRequestError(400, "Choose a saved message to request guidance.");
+  const webSearchQuery = body.data.webSearchQuery?.trim();
+  if (body.data.webSearchQuery !== undefined && !webSearchQuery) throw new ClaimRequestError(400, "Enter a public search query or leave it empty.");
+  if (webSearchQuery && (!process.env.CLAIM_CHAT_ROOT || process.env.KEENABLE_SEARCH_ENABLED?.toLowerCase() !== "true")) {
+    res.status(503).json({ error: "Public web search is not enabled. Your message remains saved." });
+    return;
+  }
   const ownerId = getAuth(req).userId!;
   const leaseId = randomUUID();
   const preparation = await db.transaction(async (tx) => {
@@ -33,6 +35,10 @@ router.post("/claims/:id/guidance", async (req, res): Promise<void> => {
     ));
     if (!source) throw new ClaimRequestError(404, "Message not found.");
     if (source.kind !== "ask" && !(source.kind === "preparation_request" && process.env.CLAIM_CHAT_ROOT)) throw new ClaimRequestError(400, "Guidance is available for conversation messages, not workflow actions.");
+    if (!process.env.CLAIM_CHAT_ROOT && promptInScope(source.content, { followup: true }) &&
+        (!process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || !process.env.AI_INTEGRATIONS_OPENAI_API_KEY)) {
+      throw new ClaimRequestError(503, "AI guidance is not configured. Your message remains saved.");
+    }
     const [existing] = await tx.select().from(claimGuidanceTable).where(eq(claimGuidanceTable.messageId, source.id));
     if (existing?.state === "ready" || (existing?.state === "pending" && existing.updatedAt.getTime() > Date.now() - GUIDANCE_LEASE_MS)) {
       return { guide: existing, generate: false, source, claim };
@@ -57,10 +63,16 @@ router.post("/claims/:id/guidance", async (req, res): Promise<void> => {
   const { source, claim, guide } = preparation;
   try {
     if (process.env.CLAIM_CHAT_ROOT) {
-      await runClaimGraph(ownerId, claim.id, guide.id);
+      await runClaimGraph(ownerId, claim.id, guide.id, undefined, webSearchQuery);
       const [current] = await db.select().from(claimGuidanceTable).where(eq(claimGuidanceTable.id, guide.id));
       res.json(RequestClaimGuidanceResponse.parse(serializeGuidance(current)));
       return;
+    }
+    if (!promptInScope(source.content, { followup: true })) {
+      const [saved] = await db.update(claimGuidanceTable).set({ content: OUT_OF_SCOPE_MESSAGE, sources: [], state: "ready", updatedAt: new Date() })
+        .where(and(eq(claimGuidanceTable.id, guide.id), eq(claimGuidanceTable.leaseId, leaseId))).returning();
+      if (saved) { res.json(RequestClaimGuidanceResponse.parse(serializeGuidance(saved))); return; }
+      throw new Error("GuidanceLeaseChanged");
     }
     const messages = (await db.select().from(claimMessagesTable).where(and(
       eq(claimMessagesTable.claimId, claim.id), lte(claimMessagesTable.createdAt, source.createdAt),
@@ -81,15 +93,16 @@ router.post("/claims/:id/guidance", async (req, res): Promise<void> => {
     // Preserve the metadata-only hosted integration for non-local deployments.
     const history: { role: "system" | "user" | "assistant"; content: string }[] = [
       { role: "system", content: CLAIM_GUIDE_PROMPT },
-      { role: "user", content: `Claim context (untrusted data, metadata only): ${JSON.stringify({ title: claim.title, recordedExpenseTotal: claim.totalExpenses, policy: policy ? { label: policy.label, deductible: policy.deductible } : null })}` },
+      { role: "user", content: `Claim context (untrusted data, metadata only): ${JSON.stringify({ title: promptInScope(claim.title) ? claim.title : "Claim", recordedExpenseTotal: claim.totalExpenses, policy: policy ? { label: policy.label, deductible: policy.deductible } : null })}` },
     ];
     // A bounded window keeps repeated conversations from creating unbounded cost.
     for (const message of messages) {
+      const reply = previousGuidance.find((g) => g.messageId === message.id);
+      if (!includePromptInHistory(message.content, reply?.content)) continue;
       history.push({ role: "user", content: JSON.stringify({
         text: message.content.slice(0, 4000), kind: message.kind, expense: message.expense, status: message.status,
         attachments: evidence.filter((e) => e.messageId === message.id),
       }) });
-      const reply = previousGuidance.find((g) => g.messageId === message.id);
       if (reply?.content) history.push({ role: "assistant", content: reply.content });
     }
     const { openai } = await import("@workspace/integrations-openai-ai-server");
@@ -125,6 +138,9 @@ router.post("/claims/:id/guidance/:runId/respond", async (req, res): Promise<voi
     .innerJoin(claimsTable, eq(claimGuidanceTable.claimId, claimsTable.id))
     .where(and(eq(claimsTable.id, id), eq(claimsTable.ownerId, owner), eq(claimGuidanceTable.id, runId)));
   if (!owned) throw new ClaimRequestError(404, "Review not found.");
+  if ((action === "edit" || action === "clarify") && !promptInScope(feedback ?? "", { followup: true })) {
+    throw new ClaimRequestError(400, OUT_OF_SCOPE_MESSAGE);
+  }
   await runClaimGraph(owner, id, runId, body.data);
   const [current] = await db.select().from(claimGuidanceTable).where(eq(claimGuidanceTable.id, runId));
   res.json(RequestClaimGuidanceResponse.parse(serializeGuidance(current)));

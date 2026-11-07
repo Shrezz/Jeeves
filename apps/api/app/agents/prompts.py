@@ -15,6 +15,13 @@ Choose answer_claim for coverage questions or reading an existing claim's status
 save_claim_status for recording facts, repair progress, or a resolution;
 file_claim for preparing a claim packet. A request that both reports a repair cost
 and asks to file routes to file_claim; keep the complete message for that agent.
+Your task is only to classify the user's intent, not answer the question. Policy
+passages are intentionally not supplied to this router; a later step retrieves them.
+Do not ask for policy wording, policy number, incident details, or coverage evidence
+just to route a question. The selected claim and policy are already verified by the
+backend. For "What is my policy deductible?" return route=answer_claim and
+clarification=null. For "What does this policy say about temporary boarding?"
+also return route=answer_claim and clarification=null.
 If intent or the target claim is ambiguous, return a clarification with route=null.
 An explicit UI route, when supplied, is handled by the backend.
 """
@@ -40,7 +47,7 @@ STATUS = (
 Propose only changes supported by the user's message and edit feedback.
 facts contains changed fields only; null means leave unchanged, not delete.
 Never infer claim status from a coverage assessment. Repair progress belongs in
-facts.repair_status (scheduled or completed), not the claim lifecycle status.
+facts.repair_status (pending, scheduled or completed), not the claim lifecycle status.
 Use filed_by_user only when the user reports filing. For a reported insurer decision,
 use insurer_decision_received and insurer_outcome; it is always user-reported.
 Use resolved_without_filing only when the user explicitly chooses not to file.
@@ -71,7 +78,8 @@ In coverage.citation_ids list the actual available_chunk_ids for both the covere
 and the deductible/payment terms; prose section numbers are not citations. If the facts
 support a conditional flat-deductible estimate, set covered_amount to the reported eligible
 repair expense before the deductible and deductible to the policy amount. A draft estimate
-does not verify a receipt. The deductible cannot reduce covered_amount: for example, a fully
+does not verify a receipt. An explicit clarified_repair_status is user-reported; preserve it
+and do not ask again whether repair is pending. The deductible cannot reduce covered_amount: for example, a fully
 eligible expense below the deductible still has its full cost as covered_amount, not zero. Use missing_information only for genuinely unknown required facts.
 Never ask whether something is attached: the attachment_inventory is authoritative.
 Do not invent receipts or claim identifiers.

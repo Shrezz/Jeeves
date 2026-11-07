@@ -65,7 +65,8 @@ function GuidanceCard({
       {guidance.sources.length > 0 && <details className="mt-3 border-t border-primary/20 pt-2 text-xs leading-5">
         <summary className="cursor-pointer font-semibold text-primary">Policy evidence · {Array.from(new Set(guidance.sources.map(s => s.page))).sort((a, b) => a - b).map(p => 'p. ' + p).join(', ')}</summary>
         <ul className="mt-2 space-y-2">{guidance.sources.map((s, i) => <li key={i} className="border-l-2 border-primary/40 pl-3"><p className="font-semibold">Page {s.page}{s.section && ' · ' + s.section}</p><blockquote>“{s.excerpt}”</blockquote></li>)}</ul>
-      </details>}</article>;
+      </details>}
+      {guidance.workflow?.publicWebSearch && <div className="mt-3 border-t border-primary/20 pt-2 text-xs leading-5"><p className="font-semibold">Public web results · not policy evidence</p>{guidance.workflow.publicWebSearch.status === 'unavailable' ? <p>Public web search is unavailable. Your policy answer remains separate.</p> : guidance.workflow.publicWebSearch.results.length === 0 ? <p>No public results were found.</p> : <ul className="mt-2 space-y-2">{guidance.workflow.publicWebSearch.results.map((item, i) => <li key={i}><a href={item.url} target="_blank" rel="noopener noreferrer" className="font-semibold underline">{item.title || item.url}</a><p>{item.snippet}</p></li>)}</ul>}</div>}</article>;
   }
   return <div className="mt-3 rounded-xl border border-dashed border-primary/25 bg-[hsl(176_30%_96%)] px-4 py-3"><p className="text-sm font-semibold">Guidance hasn’t started for this message.</p><button type="button" data-testid={`button-get-guidance-${messageId}`} onClick={onRetry} className="mt-2 inline-flex min-h-9 items-center gap-2 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90">Get guidance</button></div>;
 }

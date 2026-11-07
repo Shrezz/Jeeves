@@ -13,6 +13,7 @@ from uuid import uuid4
 from langgraph.types import Command
 
 from app.agents.context import AgentContext
+from app.agents.prompt_scope import OUT_OF_SCOPE_MESSAGE, in_scope
 from app.agents.state import AgentState
 from app.observability.tracing import current_run_id, observation, trace_session
 from app.schemas.agents import AgentRequest
@@ -120,7 +121,15 @@ class WorkflowService:
             else:
                 if request.clarification is None:
                     raise Conflict("This run is waiting for clarification")
+                if not in_scope(request.clarification.message, followup=True):
+                    raise Conflict(OUT_OF_SCOPE_MESSAGE)
                 value = request.clarification.model_dump(mode="json")
+            if (
+                request.decision
+                and request.decision.action == "edit"
+                and not in_scope(request.decision.feedback or "", followup=True)
+            ):
+                raise Conflict(OUT_OF_SCOPE_MESSAGE)
             await self.execute(run_id, Command(resume={request.interrupt_id: value}))
             response = self.view(user_id, run_id)
             run.responses[request.request_key] = (digest, response)
@@ -201,6 +210,8 @@ class WorkflowService:
             return RunView(**base, status="running")
         if run.error:
             return RunView(**base, status="failed", error=run.error)
+        if state.get("scope_decision") == "out_of_scope":
+            return RunView(**base, status="blocked", error=OUT_OF_SCOPE_MESSAGE)
         if run.interrupts:
             item = run.interrupts[0]
             pending = PendingAction.model_validate(item.value | {"interrupt_id": item.id})

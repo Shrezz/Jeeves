@@ -8,4 +8,9 @@
 
 export interface ClaimGuidanceInput {
   messageId: string;
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  webSearchQuery?: string;
 }

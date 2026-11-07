@@ -10,11 +10,12 @@ from .context import AgentContext
 from .file_claim import file_claim
 from .human_review import human_review
 from .lifecycle import begin_request, clarify, commit_action
+from .prompt_scope import scope_guard
 from .reviewer import reviewer
 from .router import router
 from .save_claim_status import save_claim_status
-from .web_search import web_search
 from .state import AgentState
+from .web_search import web_search
 
 
 def selected_agent(state: AgentState) -> str:
@@ -46,6 +47,7 @@ def build_graph(checkpointer: BaseCheckpointSaver, *, reviewed_chat_node=None):
     graph = StateGraph(AgentState, context_schema=AgentContext)
     for name, node in {
         "begin_request": begin_request,
+        "scope_guard": scope_guard,
         "web_search": web_search,
         "router": router,
         "answer_claim": reviewed_chat_node or answer_claim,
@@ -58,7 +60,12 @@ def build_graph(checkpointer: BaseCheckpointSaver, *, reviewed_chat_node=None):
     }.items():
         graph.add_node(name, instrument_node(name, node))
     graph.add_edge(START, "begin_request")
-    graph.add_edge("begin_request", "web_search")
+    graph.add_edge("begin_request", "scope_guard")
+    graph.add_conditional_edges(
+        "scope_guard",
+        lambda state: "web_search" if state["scope_decision"] == "allowed" else END,
+        ["web_search", END],
+    )
     graph.add_edge("web_search", "router")
     routes = ["answer_claim", "save_claim_status", "file_claim"]
     graph.add_conditional_edges("router", selected_agent, routes + ["clarify"])

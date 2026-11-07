@@ -1,5 +1,7 @@
 """Review packet completeness, factual consistency, and policy support."""
 
+import re
+
 from app.schemas.agents import ClaimSnapshot, PacketDraft, ReviewIssue
 from app.services.rag.types import Citation
 
@@ -41,19 +43,48 @@ def validate(
     claim: ClaimSnapshot,
     evidence: list[Citation],
     context: AgentContext,
+    request_message: str = "",
 ) -> tuple[list[ReviewIssue], list[str]]:
     issues = coverage_issues(draft.coverage, evidence, draft.facts.repair_cost)
+    prior_intact = re.compile(
+        r"\bwindow\b.{0,30}\b(?:was|had been)\s+(?:previously\s+)?intact\b.{0,35}\bbefore\b",
+        re.IGNORECASE,
+    )
+    if prior_intact.search(draft.narrative) and not any(
+        prior_intact.search(text) for text in [request_message, *claim.notes]
+    ):
+        issues.append(
+            ReviewIssue(
+                check="unsupported_prior_condition",
+                field="narrative",
+                detail="The draft claims the window was intact before the storm, but the homeowner did not report that fact. Remove it or ask for clarification.",
+            )
+        )
+    if draft.facts.repair_status == "pending":
+        narrative = re.sub(
+            r"\bnot\s+(?:yet\s+)?(?:completed|finished)\b", "", draft.narrative, flags=re.IGNORECASE
+        )
+        if re.search(
+            r"\brepairs?\b.{0,30}\b(?:completed|finished|unknown)\b", narrative, re.IGNORECASE
+        ):
+            issues.append(
+                ReviewIssue(
+                    check="repair_status_consistency",
+                    field="narrative",
+                    detail="The narrative conflicts with the user-reported pending repair status.",
+                )
+            )
     if (
         draft.coverage.conclusion == "likely_covered"
-        and draft.facts.repair_cost
-        and draft.coverage.covered_amount == 0
-        and draft.coverage.deductible
+        and draft.facts.repair_cost is not None
+        and draft.coverage.covered_amount is not None
+        and draft.coverage.covered_amount < draft.facts.repair_cost
     ):
         issues.append(
             ReviewIssue(
                 check="gross_expense",
                 field="coverage.covered_amount",
-                detail="Covered amount is the eligible repair expense before the deductible, not the estimated payout. Use the supported gross expense, or null if uncertain.",
+                detail="The eligible amount before the deductible is less than the reported expense. This simplified estimate cannot verify partial coverage, limits, or other adjustments. Do not invent a reduction or subtract the deductible twice; leave the amount null and explain the uncertainty if full eligibility is not supported.",
             )
         )
     if set(draft.attachment_ids) - set(claim.attachment_ids):
@@ -67,6 +98,17 @@ def validate(
     # Only deterministic omissions can short-circuit the independent reviewer. It
     # decides whether the generator's other questions actually block a review draft.
     questions = missing_fields(draft, context)
+    # Only a narrowly identified upload reminder is optional. Coverage questions
+    # remain blocking even if an LLM reviewer would otherwise pass the draft.
+    optional_upload = re.compile(
+        r"^(?:the )?(?:invoice|receipt) (?:has not been|is not) uploaded[.!]?$",
+        re.IGNORECASE,
+    )
+    questions.extend(
+        item
+        for item in draft.coverage.missing_information
+        if not optional_upload.fullmatch(item.strip())
+    )
     if not evidence:
         questions.append("Please provide relevant policy evidence before preparing the packet.")
     return issues, questions

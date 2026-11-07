@@ -213,6 +213,112 @@ def test_packet_preserves_combined_request_and_allows_zero_payment():
     assert context.generator.calls[0]["payload"]["request"]["message"] == state["request"].message
 
 
+def test_pending_clarification_survives_generator_and_keeps_other_uncertainties(monkeypatch):
+    from app.agents.lifecycle import clarify
+
+    context = make_context()
+    state = make_state("file_claim")
+    state["questions"] = ["Is the repair pending?"]
+    monkeypatch.setattr(
+        "app.agents.lifecycle.interrupt",
+        lambda _: {"message": "The window repair is pending; no boarding was performed."},
+    )
+    state.update(clarify(state))
+    context.generator.outputs.append(
+        packet_draft(
+            context,
+            facts=context.claims.claim.facts.model_copy(update={"repair_status": "unknown"}),
+            missing_information=[
+                "The repair status is unknown; confirmation of completion or pending status is needed.",
+                "Was the window already broken before the storm?",
+            ],
+        )
+    )
+    result = run(file_claim, state, context)
+    assert result["draft"].facts.repair_status == "pending"
+    assert result["draft"].missing_information == [
+        "Was the window already broken before the storm?"
+    ]
+    assert context.generator.calls[0]["payload"]["clarified_repair_status"] == "pending"
+
+
+def test_pending_repair_cannot_be_passed_with_completed_narrative():
+    context = make_context()
+    facts = context.claims.claim.facts.model_copy(update={"repair_status": "pending"})
+    context.generator.outputs.append(
+        packet_draft(context, facts=facts, narrative="The repair was completed yesterday.")
+    )
+    state = make_state("file_claim")
+    state.update(run(file_claim, state, context))
+    state.update(run(reviewer, state, context))
+    assert state["phase"] == "revision_required"
+    assert any(
+        issue.check == "repair_status_consistency" for issue in state["review"].verdict.issues
+    )
+    assert not context.reviewer.calls
+
+
+def test_packet_cannot_invent_previous_window_condition():
+    context = make_context()
+    context.generator.outputs.append(
+        packet_draft(
+            context, narrative="A window broke and the window was intact before the storm."
+        )
+    )
+    state = make_state("file_claim")
+    state.update(run(file_claim, state, context))
+    state.update(run(reviewer, state, context))
+    assert state["phase"] == "revision_required"
+    assert any(
+        issue.check == "unsupported_prior_condition" for issue in state["review"].verdict.issues
+    )
+    assert not context.reviewer.calls
+
+
+@pytest.mark.parametrize(
+    "answer", ["The repair is not pending.", "The repair is pending but completed."]
+)
+def test_ambiguous_or_negated_pending_is_not_recorded(monkeypatch, answer):
+    from app.agents.lifecycle import clarify
+
+    state = make_state("file_claim")
+    state["questions"] = ["Is the repair pending?"]
+    monkeypatch.setattr("app.agents.lifecycle.interrupt", lambda _: {"message": answer})
+    assert clarify(state)["clarified_repair_status"] is None
+
+
+def test_later_explicit_repair_correction_replaces_pending(monkeypatch):
+    from app.agents.human_review import human_review
+    from app.schemas.agents import ReviewResult
+
+    context = make_context()
+    state = make_state("file_claim")
+    state.update(
+        claim=context.claims.claim,
+        draft=packet_draft(context),
+        artifact_version=1,
+        estimate=None,
+        clarified_repair_status="pending",
+        review=ReviewResult(
+            route="file_claim", artifact_version=1, verdict=ReviewVerdict(outcome="pass")
+        ),
+    )
+    monkeypatch.setattr(
+        "app.agents.human_review.interrupt",
+        lambda _: {
+            "artifact_version": 1,
+            "action": "edit",
+            "feedback": "The repair was completed.",
+        },
+    )
+    update = run(human_review, state, context)
+    assert update["clarified_repair_status"] == "completed"
+    state.update(update)
+    context.generator.outputs.append(packet_draft(context))
+    revised = run(file_claim, state, context)
+    assert revised["draft"].facts.repair_status == "completed"
+
+
 def test_optional_invoice_is_reviewed_without_requiring_an_upload():
     context = make_context()
     context.generator.outputs.append(
@@ -227,15 +333,47 @@ def test_optional_invoice_is_reviewed_without_requiring_an_upload():
     state.update(run(file_claim, state, context))
     context.reviewer.outputs.append(ReviewVerdict(outcome="pass"))
     state.update(run(reviewer, state, context))
-    assert state["phase"] == "human_review" and state["estimate"].covered_amount == 150
-    assert state["estimate"].estimated_payment == 0
-    assert context.reviewer.calls[0]["payload"]["calculated_estimate"]["deductible"] == "1000.00"
+    assert state["phase"] == "human_review" and state["estimate"] is None
+    assert context.reviewer.calls[0]["payload"]["calculated_estimate"] is None
+
+
+def test_unresolved_coverage_cannot_be_cleared_into_an_estimate():
+    context = make_context()
+    context.generator.outputs.append(
+        packet_draft(
+            context,
+            coverage=coverage_draft(
+                missing_information=["Was the window already broken before the storm?"]
+            ),
+        )
+    )
+    state = make_state("file_claim")
+    state.update(run(file_claim, state, context))
+    state.update(run(reviewer, state, context))
+    assert state["phase"] == "needs_information"
+    assert state["estimate"] is None
+    assert any("already broken" in question for question in state["questions"])
+    assert not context.reviewer.calls
 
 
 def test_packet_cannot_treat_a_zero_payment_as_zero_eligible_expense():
     context = make_context()
     context.generator.outputs.append(
         packet_draft(context, coverage=coverage_draft(covered_amount="0"))
+    )
+    state = make_state("file_claim")
+    state.update(run(file_claim, state, context))
+    state.update(run(reviewer, state, context))
+    assert state["phase"] == "revision_required"
+    assert any(issue.check == "gross_expense" for issue in state["review"].verdict.issues)
+
+
+@pytest.mark.parametrize("covered_amount", ["300.00", "400.00"])
+def test_packet_flags_unverified_reduction_before_human_review(covered_amount):
+    context = make_context()
+    facts = context.claims.claim.facts.model_copy(update={"repair_cost": Decimal("1400.00")})
+    context.generator.outputs.append(
+        packet_draft(context, facts=facts, coverage=coverage_draft(covered_amount=covered_amount))
     )
     state = make_state("file_claim")
     state.update(run(file_claim, state, context))

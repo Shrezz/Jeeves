@@ -152,7 +152,15 @@ export const GetClaimResponse = zod.object({
   "fields": zod.array(zod.object({
   "label": zod.string(),
   "value": zod.string()
+})),
+  "publicWebSearch": zod.object({
+  "status": zod.enum(['ok', 'unavailable']),
+  "results": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string(),
+  "snippet": zod.string()
 }))
+}).optional()
 }).optional(),
   "sources": zod.array(zod.object({
   "chunkId": zod.string(),
@@ -237,7 +245,15 @@ export const GetClaimReviewResponse = zod.object({
   "fields": zod.array(zod.object({
   "label": zod.string(),
   "value": zod.string()
+})),
+  "publicWebSearch": zod.object({
+  "status": zod.enum(['ok', 'unavailable']),
+  "results": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string(),
+  "snippet": zod.string()
 }))
+}).optional()
 }).optional(),
   "sources": zod.array(zod.object({
   "chunkId": zod.string(),
@@ -352,7 +368,15 @@ export const SaveClaimReviewCommentsResponse = zod.object({
   "fields": zod.array(zod.object({
   "label": zod.string(),
   "value": zod.string()
+})),
+  "publicWebSearch": zod.object({
+  "status": zod.enum(['ok', 'unavailable']),
+  "results": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string(),
+  "snippet": zod.string()
 }))
+}).optional()
 }).optional(),
   "sources": zod.array(zod.object({
   "chunkId": zod.string(),
@@ -468,7 +492,15 @@ export const SubmitClaimReviewResponse = zod.object({
   "fields": zod.array(zod.object({
   "label": zod.string(),
   "value": zod.string()
+})),
+  "publicWebSearch": zod.object({
+  "status": zod.enum(['ok', 'unavailable']),
+  "results": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string(),
+  "snippet": zod.string()
 }))
+}).optional()
 }).optional(),
   "sources": zod.array(zod.object({
   "chunkId": zod.string(),
@@ -551,8 +583,13 @@ export const RequestClaimGuidanceParams = zod.object({
   "id": zod.coerce.string().uuid()
 })
 
+export const requestClaimGuidanceBodyWebSearchQueryMax = 500;
+
+
+
 export const RequestClaimGuidanceBody = zod.object({
-  "messageId": zod.string().uuid()
+  "messageId": zod.string().uuid(),
+  "webSearchQuery": zod.string().min(1).max(requestClaimGuidanceBodyWebSearchQueryMax).optional()
 })
 
 
@@ -572,7 +609,15 @@ export const RequestClaimGuidanceResponse = zod.object({
   "fields": zod.array(zod.object({
   "label": zod.string(),
   "value": zod.string()
+})),
+  "publicWebSearch": zod.object({
+  "status": zod.enum(['ok', 'unavailable']),
+  "results": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string(),
+  "snippet": zod.string()
 }))
+}).optional()
 }).optional(),
   "sources": zod.array(zod.object({
   "chunkId": zod.string(),
@@ -623,7 +668,15 @@ export const RespondToClaimReviewResponse = zod.object({
   "fields": zod.array(zod.object({
   "label": zod.string(),
   "value": zod.string()
+})),
+  "publicWebSearch": zod.object({
+  "status": zod.enum(['ok', 'unavailable']),
+  "results": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string(),
+  "snippet": zod.string()
 }))
+}).optional()
 }).optional(),
   "sources": zod.array(zod.object({
   "chunkId": zod.string(),

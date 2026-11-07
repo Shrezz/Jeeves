@@ -52,6 +52,7 @@ def test_ollama_generation_traces_only_safe_metadata(monkeypatch):
             "model": "test-model",
             "metadata": {"provider": "ollama", "schema": "RouteDecision"},
         },
+        {"input": {"capture": "metadata_only", "schema": "RouteDecision"}},
         {"output": {"validated": True}},
     ]
 
@@ -151,13 +152,14 @@ def test_unsupported_ollama_structured_output_is_recorded_without_response_body(
     with pytest.raises(RuntimeError, match="structured output is unavailable"):
         asyncio.run(run())
     assert updates == [
+        {"input": {"capture": "metadata_only", "schema": "RouteDecision"}},
         {
             "metadata": {
                 "provider": "ollama",
                 "schema": "RouteDecision",
                 "failure_type": "structured_output_unavailable",
             }
-        }
+        },
     ]
 
 
@@ -182,7 +184,9 @@ def test_ui_worker_flushes_trace_when_database_setup_fails(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://localhost/synthetic")
     monkeypatch.setattr(ui_workflow.sys, "argv", ["worker"])
     monkeypatch.setattr(
-        ui_workflow.sys, "stdin", io.StringIO(json.dumps({"runId": "synthetic-run"}))
+        ui_workflow.sys,
+        "stdin",
+        io.StringIO(json.dumps({"runId": "synthetic-run", "claimId": "synthetic-claim"})),
     )
     monkeypatch.setattr(ui_workflow, "trace_session", session)
     monkeypatch.setattr(ui_workflow, "observation", observation)

@@ -43,6 +43,8 @@ class NebiusModel:
         ) as span:
             if capture_synthetic_content():
                 span.update(input=sanitize_content({"prompt": prompt, "payload": payload}))
+            else:
+                span.update(input={"capture": "metadata_only", "schema": output_type.__name__})
             result = await self._generate(
                 prompt=prompt, payload=payload, output_type=output_type, span=span
             )

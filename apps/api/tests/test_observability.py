@@ -4,7 +4,9 @@ import asyncio
 from contextlib import contextmanager, nullcontext
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
+from langgraph.errors import GraphInterrupt
 
 from app.agents.checkpoints import memory_checkpointer
 from app.agents.graph import build_graph
@@ -35,6 +37,14 @@ class FakeClient:
 
     def flush(self):
         pass
+
+
+def test_expected_graph_interrupt_is_not_recorded_as_error(monkeypatch):
+    fake = FakeClient()
+    monkeypatch.setattr(tracing, "get_trace_client", lambda: fake)
+    with pytest.raises(GraphInterrupt), tracing.observation("agent-human_review"):
+        raise GraphInterrupt()
+    assert fake.events[0]["updates"] == [{"output": {"interrupted": True}}]
 
 
 def test_agent_graph_traces_nodes_and_human_approval_without_raw_content(monkeypatch):
@@ -124,7 +134,7 @@ def test_provider_usage_is_recorded_without_prompt_or_response(monkeypatch):
     assert asyncio.run(invoke()).route == "answer_claim"
     generation = fake.events[0]
     assert generation["start"]["as_type"] == "generation"
-    assert generation["updates"][0]["usage_details"] == {
+    assert next(u["usage_details"] for u in generation["updates"] if "usage_details" in u) == {
         "prompt_tokens": 10,
         "completion_tokens": 5,
         "total_tokens": 15,
@@ -160,6 +170,19 @@ def test_detailed_capture_is_demo_only_and_redacts_common_secrets(monkeypatch):
     assert sanitized["password"] == "[redacted]"
     assert sanitized["nested"]["authorization"] == "[redacted]"
     assert "hidden-token" not in repr(sanitized)
+
+
+def test_ui_content_capture_is_limited_to_explicit_synthetic_claim(monkeypatch):
+    monkeypatch.delenv("JEEVES_MODE", raising=False)
+    monkeypatch.setenv("LANGFUSE_CAPTURE_SYNTHETIC_CONTENT", "true")
+    monkeypatch.setenv("JEEVES_SYNTHETIC_TRACE_CLAIM_IDS", "synthetic-claim")
+    assert not tracing.capture_synthetic_content()
+    with tracing.synthetic_claim_capture("another-claim"):
+        assert not tracing.capture_synthetic_content()
+    with tracing.synthetic_claim_capture("synthetic-claim"):
+        assert tracing.capture_synthetic_content()
+        assert tracing.sanitize_content({"user_id": "private"})["user_id"] == "[redacted]"
+    assert not tracing.capture_synthetic_content()
 
 
 def test_model_content_capture_is_redacted_when_explicitly_enabled(monkeypatch):

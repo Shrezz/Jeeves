@@ -44,6 +44,7 @@ export function frontendConfig(env) {
     LOCAL_WEB_HOST: env.LOCAL_WEB_HOST,
     BASE_PATH: "/",
     VITE_LOCAL_POLICY_SEARCH: "1",
+    VITE_KEENABLE_SEARCH_ENABLED: env.KEENABLE_SEARCH_ENABLED?.toLowerCase() === "true" ? "true" : "false",
     PORT: "5173",
   };
 }

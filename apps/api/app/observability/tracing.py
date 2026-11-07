@@ -11,11 +11,15 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any
 
+from langgraph.errors import GraphInterrupt
+
 logger = logging.getLogger(__name__)
 _client: Any = None
 current_run_id: ContextVar[str | None] = ContextVar("jeeves_run_id", default=None)
+_ui_synthetic_capture: ContextVar[bool] = ContextVar("jeeves_ui_synthetic_capture", default=False)
 _SECRET_KEY = re.compile(
-    r"password|token|authorization|secret|api[_-]?key|cookie|session", re.IGNORECASE
+    r"password|token|authorization|secret|api[_-]?key|cookie|session|user[_-]?id|claim[_-]?id|policy[_-]?id",
+    re.IGNORECASE,
 )
 _BEARER = re.compile(r"(?i)\b(bearer\s+)\S+")
 _API_KEY = re.compile(r"\b(?:sk|pk)-[A-Za-z0-9_-]{8,}\b")
@@ -23,10 +27,24 @@ _API_KEY = re.compile(r"\b(?:sk|pk)-[A-Za-z0-9_-]{8,}\b")
 
 def capture_synthetic_content() -> bool:
     """Extra content capture is opt-in and only available in demo mode."""
-    return (
-        os.getenv("JEEVES_MODE") == "demo"
-        and os.getenv("LANGFUSE_CAPTURE_SYNTHETIC_CONTENT", "false").lower() == "true"
+    return os.getenv("LANGFUSE_CAPTURE_SYNTHETIC_CONTENT", "false").lower() == "true" and (
+        os.getenv("JEEVES_MODE") == "demo" or _ui_synthetic_capture.get()
     )
+
+
+@contextmanager
+def synthetic_claim_capture(claim_id: str) -> Iterator[None]:
+    """Allow opt-in content capture only for explicitly listed fictional claim IDs."""
+    allowed = {
+        item.strip()
+        for item in os.getenv("JEEVES_SYNTHETIC_TRACE_CLAIM_IDS", "").split(",")
+        if item.strip()
+    }
+    token = _ui_synthetic_capture.set(bool(claim_id) and claim_id in allowed)
+    try:
+        yield
+    finally:
+        _ui_synthetic_capture.reset(token)
 
 
 def sanitize_content(value: Any, *, depth: int = 0) -> Any:
@@ -117,6 +135,14 @@ def observation(
         return
     try:
         yield SafeSpan(span)
+    except GraphInterrupt:
+        # A graph interrupt is an expected pause for human input, not a failure.
+        SafeSpan(span).update(output={"interrupted": True})
+        try:
+            manager.__exit__(None, None, None)
+        except Exception:  # noqa: BLE001 - telemetry failures must not break the application
+            logger.warning("Unable to close Langfuse observation")
+        raise
     except BaseException:
         # Do not export exception messages or stacks: provider errors can contain
         # policy text, headers, or credentials. Preserve the original exception.

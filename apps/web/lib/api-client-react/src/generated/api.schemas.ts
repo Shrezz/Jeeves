@@ -138,6 +138,11 @@ export interface EvidenceUploadInput {
 
 export interface ClaimGuidanceInput {
   messageId: string;
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  webSearchQuery?: string;
 }
 
 export type ClaimReviewResponseInputAction = typeof ClaimReviewResponseInputAction[keyof typeof ClaimReviewResponseInputAction];
@@ -193,6 +198,25 @@ export const ClaimWorkflowPhase = {
   rejected: 'rejected',
 } as const;
 
+export type PublicWebSearchStatus = typeof PublicWebSearchStatus[keyof typeof PublicWebSearchStatus];
+
+
+export const PublicWebSearchStatus = {
+  ok: 'ok',
+  unavailable: 'unavailable',
+} as const;
+
+export interface PublicWebResult {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
+export interface PublicWebSearch {
+  status: PublicWebSearchStatus;
+  results: PublicWebResult[];
+}
+
 export interface ClaimWorkflow {
   route: ClaimWorkflowRoute;
   phase: ClaimWorkflowPhase;
@@ -200,6 +224,7 @@ export interface ClaimWorkflow {
   version: number;
   narrative?: string;
   fields: WorkflowField[];
+  publicWebSearch?: PublicWebSearch;
 }
 
 export type ClaimGuidanceState = typeof ClaimGuidanceState[keyof typeof ClaimGuidanceState];

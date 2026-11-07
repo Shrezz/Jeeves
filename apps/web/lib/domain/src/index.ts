@@ -1,4 +1,5 @@
 export * from "./generated";
+export * from "./prompt-scope";
 
 import { CLAIM_STATUS_LABELS, CLAIM_STATUS_VALUES } from "./generated";
 import type { ClaimStatus } from "./generated";

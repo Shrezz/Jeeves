@@ -109,6 +109,18 @@ def test_human_edit_rechecks_and_replaces_approval(backend):
     assert decision(client, edited, key="new-approval").json()["status"] == "completed"
 
 
+def test_off_topic_edit_does_not_resume_or_consume_review(backend):
+    client, store, service = backend
+    packet = start(client, "I paid $150. Prepare the packet.")
+    before = list(service.runs[packet["run_id"]].stages)
+    rejected = decision(client, packet, "edit", feedback="How's the weather?")
+    assert rejected.status_code == 409
+    assert "not appear relevant" in rejected.json()["detail"]
+    assert service.runs[packet["run_id"]].stages == before
+    assert client.get(f"/agent/runs/{packet['run_id']}").json()["status"] == "awaiting_review"
+    assert not store.events
+
+
 def test_repeated_requests_and_approvals_are_idempotent(backend):
     client, store, _ = backend
     first = start(client, "I paid $150. Save the repair update.")

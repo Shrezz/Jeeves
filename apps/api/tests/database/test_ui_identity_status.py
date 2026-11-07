@@ -64,6 +64,10 @@ def test_existing_ui_records_migrate_without_rekeying_and_replays_are_safe(datab
                 "UPDATE claims SET incident_json=jsonb_build_object('repair_status','completed') WHERE id=%s",
                 (claim,),
             )
+            conn.execute(
+                "UPDATE claims SET incident_json=jsonb_build_object('repair_status','pending') WHERE id=%s",
+                (claim,),
+            )
             assert (
                 conn.execute("SELECT status FROM claims WHERE id=%s", (claim,)).fetchone()[0]
                 == "gathering_evidence"

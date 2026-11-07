@@ -122,6 +122,7 @@ def model_payload(
         "evidence": [asdict(item) for item in evidence],
         "review_feedback": review.verdict.model_dump(mode="json") if review else None,
         "requested_edits": decision.feedback if decision and decision.action == "edit" else None,
+        "clarified_repair_status": state.get("clarified_repair_status"),
     }
 
 

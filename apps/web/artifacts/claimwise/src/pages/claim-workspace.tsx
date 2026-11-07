@@ -54,6 +54,7 @@ export function ClaimWorkspacePage({ claimId, embedded = false }: { claimId: str
   const initial = composerByClaim.get(draftKey) ?? { message: '', expense: '', attachments: [] };
   const [message, setMessage] = useState(initial.message);
   const [expense, setExpense] = useState(initial.expense);
+  const [webSearchQuery, setWebSearchQuery] = useState('');
   const [attachments, setAttachments] = useState<string[]>(initial.attachments);
   const [saveError, setSaveError] = useState('');
   const [uploadError, setUploadError] = useState('');
@@ -71,6 +72,7 @@ export function ClaimWorkspacePage({ claimId, embedded = false }: { claimId: str
   const busyRef = useRef(false);
   const uploadBusyRef = useRef(false);
   const guidanceRequestRef = useRef<string | null>(null);
+  const webSearchQueries = useRef(new Map<string, string>());
   const uploadTicket = useRef<{ signature: string; id: string; uploadURL: string; started: number; uploaded: boolean } | null>(null);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
@@ -89,6 +91,7 @@ export function ClaimWorkspacePage({ claimId, embedded = false }: { claimId: str
   useEffect(() => {
     const value = composerByClaim.get(`${currentOwner ?? 'signed-out'}:${claimId}`) ?? { message: '', expense: '', attachments: [] };
     setMessage(value.message); setExpense(value.expense); setAttachments(value.attachments);
+    setWebSearchQuery(''); webSearchQueries.current.clear();
     setStatusComment(value.statusComment ?? ''); setNextStatus(value.nextStatus ?? ClaimStatus.gathering_evidence);
     setSaveError(''); setUploadError(''); setPreparing(false); setPrepareConfirmed(false); setStatusForm(value.statusForm ?? false);
   }, [claimId]);
@@ -175,13 +178,15 @@ export function ClaimWorkspacePage({ claimId, embedded = false }: { claimId: str
     }
   };
 
-  const requestGuidanceFor = async (messageId: string) => {
+  const requestGuidanceFor = async (messageId: string, publicQuery?: string) => {
     if (guidanceRequestRef.current || currentOwner !== ownerAtRender) return;
     guidanceRequestRef.current = messageId;
     setGuidanceBusyId(messageId);
     setGuidanceErrors((current) => ({ ...current, [messageId]: false }));
     try {
-      const result = await requestGuidance.mutateAsync({ id: claimId, data: { messageId } });
+      if (publicQuery) webSearchQueries.current.set(messageId, publicQuery);
+      const query = webSearchQueries.current.get(messageId);
+      const result = await requestGuidance.mutateAsync({ id: claimId, data: { messageId, ...(query ? { webSearchQuery: query } : {}) } });
       if (currentOwner !== ownerAtRender) return;
       queryClient.setQueryData(getGetClaimQueryKey(claimId), (old: typeof workspace) => old
         ? { ...old, guidance: [...old.guidance.filter((item) => item.messageId !== messageId && item.id !== result.id), result] }
@@ -210,6 +215,7 @@ export function ClaimWorkspacePage({ claimId, embedded = false }: { claimId: str
       return;
     }
     const cleanContent = content.trim();
+    const publicQuery = kind === 'ask' ? webSearchQuery.trim() : '';
     if (kind === 'ask' && !cleanContent && !expense.trim() && !attachments.length) { setSaveError('Write a message, record an expense, or attach evidence before asking.'); return; }
     const amount = kind !== 'status_update' && expense.trim() ? Number(expense.replace(/[$,]/g, '')) : undefined;
     const entryAttachments = kind === 'status_update' ? [] : attachments;
@@ -257,13 +263,13 @@ export function ClaimWorkspacePage({ claimId, embedded = false }: { claimId: str
       : old);
     if (mounted.current && claimIdRef.current === sentTo) {
       if (kind === 'status_update') { setStatusForm(false); setStatusComment(''); }
-      else { setMessage(''); setExpense(''); setAttachments([]); setPreparing(false); setPrepareConfirmed(false); }
+      else { setMessage(''); setExpense(''); setAttachments([]); setWebSearchQuery(''); setPreparing(false); setPrepareConfirmed(false); }
       setReceipt(kind === 'status_update' ? 'Status update saved.' : kind === 'preparation_request' ? 'Preparation request saved.' : 'Your message is saved. Requesting guidance…');
     }
     void queryClient.invalidateQueries({ queryKey: getGetClaimQueryKey(sentTo) });
     void queryClient.invalidateQueries({ queryKey: getListClaimsQueryKey() });
     busyRef.current = false; setBusy(false);
-    if (kind === 'ask' || (kind === 'preparation_request' && import.meta.env.VITE_LOCAL_POLICY_SEARCH)) void requestGuidanceFor(savedMessage.id);
+    if (kind === 'ask' || (kind === 'preparation_request' && import.meta.env.VITE_LOCAL_POLICY_SEARCH)) void requestGuidanceFor(savedMessage.id, publicQuery || undefined);
   };
 
   if (isLoading) return embedded
@@ -294,6 +300,7 @@ export function ClaimWorkspacePage({ claimId, embedded = false }: { claimId: str
           <form className="space-y-3 border-t border-card-border bg-background/70 p-4 sm:p-5" onSubmit={(event) => { event.preventDefault(); void send('ask', message); }}>
             <fieldset disabled={busy} className="space-y-3">
             <div><label htmlFor="claim-message" className="mb-1.5 block text-sm font-semibold">Message</label><textarea ref={composerRef} id="claim-message" rows={3} maxLength={12000} value={message} onChange={(event) => updateMessage(event.target.value)} placeholder="Tell us what happened, in your own words" data-testid="input-message" className="w-full resize-y rounded-xl border border-input bg-card px-3 py-2.5 text-sm leading-6 focus:border-primary focus:outline-none" /></div>
+            {import.meta.env.VITE_KEENABLE_SEARCH_ENABLED === 'true' && <div><label htmlFor="public-web-query" className="mb-1.5 block text-sm font-semibold">Public web search (optional)</label><input id="public-web-query" value={webSearchQuery} maxLength={500} onChange={(event) => setWebSearchQuery(event.target.value)} placeholder="A general topic to search online" className="w-full rounded-xl border border-input bg-card px-3 py-2 text-sm" /><p className="mt-1 text-xs text-muted-foreground">Only this field is sent to Keenable when you press Ask. Do not include personal, claim, or policy details. Public links are separate from your policy evidence.</p></div>}
             <div className="flex flex-wrap items-end gap-3">
               <div><label htmlFor="claim-expense" className="mb-1.5 block text-sm font-semibold">Expense amount <span className="font-normal text-muted-foreground">(optional)</span></label><input id="claim-expense" inputMode="decimal" value={expense} onChange={(event) => updateExpense(event.target.value)} placeholder="$0.00" data-testid="input-expense" className="min-h-10 w-36 rounded-lg border border-input bg-card px-3 font-mono text-sm focus:border-primary focus:outline-none" /></div>
               <label className={`${actionClass()} cursor-pointer ${uploadProgress !== null ? 'pointer-events-none opacity-50' : ''}`}><Paperclip className="h-4 w-4" aria-hidden />Add photo, video, or document<input ref={fileInputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.mp4,.webm,.mov,application/pdf,image/png,image/jpeg,video/mp4,video/webm,video/quicktime" className="sr-only" disabled={uploadProgress !== null} data-testid="input-attach" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadFile(file); }} /></label>

@@ -17,11 +17,19 @@ from psycopg.types.json import Jsonb
 from app.agents.checkpoints import checkpoint_serializer
 from app.agents.context import AgentContext
 from app.agents.graph import build_graph
+from app.agents.prompt_scope import OUT_OF_SCOPE_MESSAGE, in_scope
 from app.agents.state import AgentState
-from app.observability.tracing import flush_traces, observation, trace_session
+from app.observability.tracing import (
+    flush_traces,
+    observation,
+    synthetic_claim_capture,
+    trace_session,
+)
 from app.schemas.agents import AgentRequest, Clarification, HumanDecision, PacketDraft
 from app.services.chat_guidance import guidance
 from app.services.chat_worker import chat_models
+from app.services.keenable import KeenableSearch
+from app.services.payment_illustration import flat_deductible, illustrated_payment, recorded_amount
 from app.services.ui_claim_store import ClaimChanged, WebClaimStore
 
 
@@ -45,6 +53,7 @@ async def chat_answer(state: AgentState, runtime: Runtime[AgentContext]):
         {
             "question": question,
             "recentNotes": store.history,
+            "reportedExpenseTotal": str(store.reported_expense_total),
             "policyAccess": "Indexed policy"
             if hits
             else "No indexed wording available for this claim.",
@@ -56,7 +65,7 @@ async def chat_answer(state: AgentState, runtime: Runtime[AgentContext]):
     return {"phase": "answer_ready", "chat_reply": result}
 
 
-def project(snapshot, files):
+def project(snapshot, files, reported_expense_total=None):
     """Only a passed, version-matched draft may leave the graph for human review."""
     state = snapshot.values
     route = state["route"].route if state.get("route") else None
@@ -64,6 +73,8 @@ def project(snapshot, files):
     pending = snapshot.interrupts[0] if snapshot.interrupts else None
     version = state.get("artifact_version", 0)
     flow = {"route": route or "clarify", "phase": phase, "version": version, "fields": []}
+    if state.get("web_search") is not None:
+        flow["publicWebSearch"] = state["web_search"]
     reply = {"content": "", "sources": [], "workflow": flow}
     if pending:
         flow["interruptId"] = pending.id
@@ -97,6 +108,7 @@ def project(snapshot, files):
         flow["narrative"] = draft.narrative
         field("Incident date", draft.facts.occurred_on)
         field("Cause", draft.facts.cause)
+        field("Repair status", draft.facts.repair_status)
         field("Repair", draft.facts.description)
         field(
             "Repair cost",
@@ -106,7 +118,31 @@ def project(snapshot, files):
         if estimate:
             field("Eligible expense before deductible", f"${estimate.covered_amount:,.2f}")
             field("Deductible", f"${estimate.deductible:,.2f}")
-            field("Estimated payment", f"${estimate.estimated_payment:,.2f}")
+            field("Estimated payment (conditional)", f"${estimate.estimated_payment:,.2f}")
+            field(
+                "Estimate basis",
+                "Assumes the reviewed eligible expense and flat deductible apply, the deductible has not already been met, and no other adjustments apply. Actual coverage and payment remain subject to the policy and insurer review.",
+            )
+        else:
+            amount = recorded_amount(reported_expense_total)
+            deductible = flat_deductible([source(c) for c in state["evidence"]])
+            if (
+                draft.coverage.conclusion == "likely_covered"
+                and amount is not None
+                and deductible
+                and amount == draft.facts.repair_cost
+            ):
+                flat, deductible_source = deductible
+                field("Reported expense", f"${amount:,.2f}")
+                field("Flat deductible", f"${flat:,.2f}")
+                field(
+                    "Illustrative payment if fully eligible",
+                    f"${illustrated_payment(amount, flat):,.2f}",
+                )
+                field(
+                    "Illustration basis",
+                    "Assumes the entire reported expense is eligible, this deductible applies and has not already been met, and no other adjustments apply. Actual coverage and payment remain subject to the policy and insurer review.",
+                )
         pages = {c.chunk_id: c.page for c in state["evidence"]}
         mentioned = set(re.findall(r"\bC\d+\b", draft.coverage.explanation))
         explanation = re.sub(
@@ -121,6 +157,15 @@ def project(snapshot, files):
         )
         wanted = set(draft.coverage.citation_ids) | mentioned
         reply["sources"] = [source(c) for c in state["evidence"] if c.chunk_id in wanted]
+        if (
+            not estimate
+            and draft.coverage.conclusion == "likely_covered"
+            and amount is not None
+            and deductible
+            and amount == draft.facts.repair_cost
+            and not any(s["chunkId"] == deductible_source["chunkId"] for s in reply["sources"])
+        ):
+            reply["sources"].append(deductible_source)
         if draft.missing_information or draft.coverage.missing_information:
             field(
                 "For your review",
@@ -177,10 +222,20 @@ async def execute(db, saver, request, generator, reviewer):
         store,
         actions=store,
         prior_coverage=store.prior_coverage,
+        web_search=KeenableSearch(os.getenv("KEENABLE_API_KEY", ""))
+        if os.getenv("KEENABLE_SEARCH_ENABLED", "false").lower() == "true"
+        else None,
     )
     graph = build_graph(saver, reviewed_chat_node=chat_answer)
     config = {"configurable": {"thread_id": run_id}}
     snapshot = await graph.aget_state(config)
+    requested_web_query = request.get("webSearchQuery")
+    if requested_web_query and snapshot.values:
+        previous_request = snapshot.values.get("request")
+        if not previous_request or previous_request.web_search_query != requested_web_query:
+            raise ClaimChanged(
+                "This run already started with a different web search. Start a new message."
+            )
     decision = request.get("response")
     # If a worker stopped between checkpointing the user's decision and updating
     # the UI row, reconcile the newer checkpoint without applying another decision.
@@ -195,6 +250,10 @@ async def execute(db, saver, request, generator, reviewer):
         if not snapshot.interrupts or decision["interruptId"] != snapshot.interrupts[0].id:
             raise ClaimChanged("This review changed. Refresh to see the latest version.")
         pending = snapshot.interrupts[0].value
+        if decision.get("action") in {"edit", "clarify"} and not in_scope(
+            decision.get("feedback") or "", followup=True
+        ):
+            raise ClaimChanged(OUT_OF_SCOPE_MESSAGE)
         if pending["kind"] == "human_review":
             if decision["action"] not in {"approve", "reject", "edit"}:
                 raise ClaimChanged("This version is waiting for a review decision.")
@@ -227,6 +286,7 @@ async def execute(db, saver, request, generator, reviewer):
                     message=row["content"] or "Help me document the attached claim evidence.",
                     claim_id=claim_id,
                     explicit_route="file_claim" if row["kind"] == "preparation_request" else None,
+                    web_search_query=requested_web_query,
                 ),
             },
             config,
@@ -236,12 +296,13 @@ async def execute(db, saver, request, generator, reviewer):
         # A transient worker failure can be retried from the most recent completed node.
         await graph.ainvoke(None, config, context=context)
     snapshot = await graph.aget_state(config)
-    result = project(snapshot, store.files)
+    result = project(snapshot, store.files, store.reported_expense_total)
     await db.execute(
         """UPDATE public.claim_guidance SET state='ready',content=%s,sources=%s,workflow=%s,updated_at=now()
         WHERE id=%s AND claim_id=%s""",
         (result["content"], Jsonb(result["sources"]), Jsonb(result["workflow"]), run_id, claim_id),
     )
+    return result
 
 
 async def main():
@@ -256,9 +317,14 @@ async def main():
     request = json.load(sys.stdin)
     try:
         with (
+            synthetic_claim_capture(request["claimId"]),
             trace_session(request["runId"]),
             observation(
                 "ui-claim-workflow",
+                input={
+                    "action": "resume" if request.get("response") else "start",
+                    "privacy": "scoped",
+                },
                 metadata={"provider": os.environ.get("CLAIM_CHAT_PROVIDER", "ollama")},
             ) as span,
         ):
@@ -270,7 +336,14 @@ async def main():
                 chat_models() as (generator, reviewer),
             ):
                 try:
-                    await execute(db, saver, request, generator, reviewer)
+                    result = await execute(db, saver, request, generator, reviewer)
+                    span.update(
+                        output={
+                            "status": result["workflow"]["phase"],
+                            "route": result["workflow"]["route"],
+                            "policy_source_count": len(result["sources"]),
+                        }
+                    )
                     print(json.dumps({"ok": True}))
                 except ClaimChanged as e:
                     span.update(output={"conflict": True})

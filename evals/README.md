@@ -83,3 +83,40 @@ apps/api/.venv/bin/python evals/langfuse_workflow_experiment.py evals/datasets/d
 The HTTP runner reports unmeasured checks and request errors separately. Its stale-approval probe sends an edit and an invalid approval only when the server reports fixture mode. Other lifecycle and adversarial scenarios require dedicated integration adapters; they are not silently counted as successes. Use a dedicated synthetic environment because starting runs may save drafts.
 
 The in-memory fixture lacks durable Postgres claims/checkpoints, a real vector store, and a real embedding provider. Full restart, storage-level isolation, and end-to-end model-quality claims require those integrations, a reviewed dataset, and an actual Langfuse run with the team's credentials.
+
+## Evaluate an existing signed-in UI run
+
+`ui_workflow_eval.py` scores an **existing** fictional claim-guidance run; it
+does not start a run or call a model. The checked-in `datasets/ui_dev.jsonl`
+contains three checks for the synthetic $650 window scenario: the coverage
+answer, a packet, and a packet after a pending-repair clarification. These are
+additional UI-specific development checks, not held-out test data.
+
+The read-only database adapter requires the claim ID to be in
+`JEEVES_SYNTHETIC_TRACE_CLAIM_IDS`, and checks that the uploaded policy PDF is
+byte-for-byte identical to `data/fixtures/Cedar-Cove-Synthetic-Homeowners.pdf`.
+It verifies cited excerpt text and page numbers against that PDF, plus routing,
+workflow phase, expected terms, search status, conditional payment, and review
+state when the chosen case calls for them. It cannot prove a citation entails a
+claim or that every generated statement is correct. Those two human-review
+checks remain **unscored** unless supplied for the exact run ID in an annotation
+file following `review-rubric.md`.
+
+With the local demo database running, set `UI_EVAL_DATABASE_URL` to the local
+database URL from `docs/local-development.md`, and load the synthetic claim
+allowlist in your shell. Then from the repository root:
+
+```sh
+apps/api/.venv/bin/python evals/ui_workflow_eval.py \
+  --run-id RUN_UUID --case-id ui_below_deductible_answer \
+  --output reports/ui-answer.json
+```
+
+Add `--langfuse` and the normal Langfuse credentials to attach measured scores
+to the latest completed trace **only when its saved route and phase match the
+database run**. No raw prompt or policy text is uploaded by this evaluator.
+The result states whether submitted scores were immediately visible. Add
+`--fail-on-failed` for a nonzero exit on failures, or `--strict` to also fail on
+unscored checks. Human annotations are a JSON object keyed by the exact run UUID,
+for example `{"RUN_UUID":{"citation_support_human":true}}`; omitted labels
+remain unscored. Reports default to `reports/`, which should not be committed.

@@ -491,6 +491,7 @@ components:
       required: [messageId]
       properties:
         messageId: { type: string, format: uuid }
+        webSearchQuery: { type: string, minLength: 1, maxLength: 500 }
     ClaimReviewResponseInput:
       type: object
       required: [interruptId, version, action]
@@ -515,6 +516,22 @@ components:
         version: { type: integer }
         narrative: { type: string }
         fields: { type: array, items: { $ref: "#/components/schemas/WorkflowField" } }
+        publicWebSearch: { $ref: "#/components/schemas/PublicWebSearch" }
+    PublicWebSearch:
+      type: object
+      required: [status, results]
+      properties:
+        status: { type: string, enum: [ok, unavailable] }
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/PublicWebResult" }
+    PublicWebResult:
+      type: object
+      required: [title, url, snippet]
+      properties:
+        title: { type: string }
+        url: { type: string }
+        snippet: { type: string }
     ClaimGuidance:
       type: object
       required: [id, claimId, messageId, content, sources, state, createdAt, updatedAt]

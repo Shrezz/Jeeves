@@ -169,8 +169,33 @@ metadata-only workflow, model, and retrieval observations; the policy worker
 exports ingestion, embedding and vector-search observations. Claim-driven policy
 search carries trace context into the child process; independent uploads create
 their own trace. Raw questions, prompts, policy excerpts, credentials, and vectors
-are not deliberately included. Never put secrets in VITE_ variables. The optional
-synthetic-content capture for the fixture demo is not forwarded to UI workers.
+are not included by default. Never put secrets in VITE_ variables. For an explicitly
+fictional local claim only, set `LANGFUSE_CAPTURE_SYNTHETIC_CONTENT=true` and
+`JEEVES_SYNTHETIC_TRACE_CLAIM_IDS` to a comma-separated allowlist of claim UUIDs.
+For those claims model inputs and outputs are sent to Langfuse; best-effort redaction
+does not remove all personal data. Never include real policyholder data or secrets in
+those claims. Clear both settings after the synthetic test and restart the launcher.
+
+To enable the optional separate public-search field set
+`KEENABLE_SEARCH_ENABLED=true` and optionally a server-side `KEENABLE_API_KEY`.
+Only the separate query the user enters is sent to Keenable; the claim message,
+documents and attachments are not automatically sent. Public results are displayed
+separately and are not used to establish coverage or as policy citations.
+
+### Claim-topic guardrail
+
+The claim agent checks the user's message and any public-search query before
+calling the router, a model, or web search. Jeev chat and the hosted fallback
+perform the same check before their model calls. Out-of-scope messages receive
+a fixed response and are excluded from later model conversation history. The
+claim review endpoints also check clarification and edit text before resuming.
+The guard is a conservative English keyword and pattern heuristic, not a semantic
+classifier or security boundary: it can reject relevant wording and can miss
+irrelevant requests that use insurance terms. Ask users to rephrase ambiguous
+questions and review the shared cases in `evals/datasets/prompt_scope_cases.json`
+when changing either implementation. A short answer such as `yes` or `$650` is
+allowed in a claim or clarification context. Guarded messages are still saved in
+the local conversation; avoiding a model call does not delete the message.
 
 See `evals/README.md` for synthetic workflow, retrieval, and embedding experiments.
 

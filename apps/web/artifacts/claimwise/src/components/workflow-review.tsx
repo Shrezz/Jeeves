@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'wouter';
-import { type ClaimGuidance, type ClaimWorkspace, getGetClaimQueryKey, getListClaimsQueryKey, useRespondToClaimReview } from '@workspace/api-client-react';
+import { type ClaimGuidance, type ClaimReview, type ClaimWorkspace, getGetClaimQueryKey, getGetClaimReviewQueryKey, getListClaimsQueryKey, useRespondToClaimReview } from '@workspace/api-client-react';
 import { Btn, Panel, inputCls } from './cw';
+import { reviewErrorMessage } from '@/lib/workflow-errors';
 
 export function WorkflowReview({ guide, workspace }: { guide: ClaimGuidance; workspace: ClaimWorkspace }) {
   const flow = guide.workflow!;
@@ -24,14 +25,16 @@ export function WorkflowReview({ guide, workspace }: { guide: ClaimGuidance; wor
       cache.setQueryData<ClaimWorkspace>(getGetClaimQueryKey(guide.claimId), old => old && ({
         ...old, guidance: old.guidance.map(item => item.id === result.id ? result : item),
       }));
+      cache.setQueryData<ClaimReview>(getGetClaimReviewQueryKey(guide.claimId), old => old && ({
+        ...old, workspace: { ...old.workspace, guidance: old.workspace.guidance.map(item => item.id === result.id ? result : item) },
+      }));
       setNote('');
       void cache.invalidateQueries({queryKey: getListClaimsQueryKey()});
     } catch (err) {
-      setError(err instanceof Error && 'status' in err && err.status === 409
-        ? 'The claim or review changed. Open the claim conversation to request a fresh draft.'
-        : 'Your decision could not be confirmed. Check the current review before retrying.');
+      setError(reviewErrorMessage(err));
     } finally {
       void cache.invalidateQueries({queryKey: getGetClaimQueryKey(guide.claimId)});
+      void cache.invalidateQueries({queryKey: getGetClaimReviewQueryKey(guide.claimId)});
     }
   }
   const title = clarify ? 'More information needed' : packet ? 'Homeowners claim packet' : 'Proposed claim update';

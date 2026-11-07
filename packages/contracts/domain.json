@@ -23,6 +23,7 @@
   ],
   "repair_status": [
     "unknown",
+    "pending",
     "scheduled",
     "completed"
   ],

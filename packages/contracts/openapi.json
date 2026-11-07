@@ -714,6 +714,7 @@
                 "type": "string",
                 "enum": [
                   "unknown",
+                  "pending",
                   "scheduled",
                   "completed"
                 ]

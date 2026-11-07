@@ -44,7 +44,7 @@ Keep these independent:
 
 | Meaning | Location / allowed values |
 | --- | --- |
-| Repair progress | `claims.incident_json.repair_status`: `unknown`, `scheduled`, `completed` |
+| Repair progress | `claims.incident_json.repair_status`: `unknown`, `pending`, `scheduled`, `completed` |
 | Reported insurer outcome | `claims.insurer_outcome`: `unknown`, `approved`, `partially_approved`, `denied` |
 | Outcome provenance | `claims.insurer_outcome_source`: `user_reported` or null; known outcomes require a source |
 | Workflow execution | `running`, `awaiting_information`, `awaiting_review`, `completed`, `blocked`, `rejected`, `failed` |

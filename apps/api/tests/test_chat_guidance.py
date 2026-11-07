@@ -2,7 +2,14 @@ import asyncio
 
 import pytest
 
-from app.services.chat_guidance import Quote, Reply, Review, guidance, verified_sources
+from app.services.chat_guidance import (
+    Quote,
+    Reply,
+    Review,
+    guidance,
+    unqualified_claim_decision,
+    verified_sources,
+)
 
 HIT = {
     "chunkId": "policy-9:0",
@@ -22,6 +29,19 @@ class Responses:
         response = next(self.responses)
         assert isinstance(response, output_type)
         return response
+
+
+def test_definitive_claim_outcomes_need_a_qualifier():
+    assert unqualified_claim_decision(
+        "Yes, the broken window is a covered loss. The policy does not issue a payment."
+    )
+    assert not unqualified_claim_decision(
+        "If the loss is eligible, the policy may pay nothing after the deductible."
+    )
+    assert unqualified_claim_decision(
+        "If the insurer needs records, provide them. Your claim is covered."
+    )
+    assert unqualified_claim_decision("Your claim is not covered.")
 
 
 def reply(answer, source=1, quote="deductible is $1,000"):
@@ -63,3 +83,55 @@ def test_fabricated_evidence_never_reaches_the_homeowner(draft):
 def test_no_policy_cannot_supply_a_citation():
     with pytest.raises(ValueError):
         verified_sources(reply("The deductible is $1,000."), [])
+
+
+def test_below_deductible_never_tells_homeowner_they_pay_nothing():
+    passages = [
+        {**HIT, "excerpt": "Flat deductible\n$1,000 per covered occurrence"},
+        {
+            **HIT,
+            "chunkId": "policy-9:1",
+            "excerpt": "Sudden impact from windborne debris that breaks an exterior dwelling window is a covered cause of loss.",
+        },
+    ]
+    bad = reply(
+        "The deductible exceeds the repair cost, so you pay nothing.",
+        quote="$1,000 per covered occurrence",
+    )
+    reviewer = Responses()
+    result = asyncio.run(
+        guidance(
+            {
+                "question": "Is windborne debris breaking my window covered and how does the deductible affect payment?",
+                "reportedExpenseTotal": "650",
+            },
+            passages,
+            Responses(bad, bad),
+            reviewer,
+        )
+    )
+    assert not reviewer.payloads  # Deterministic guard catches the dangerous wording.
+    assert (
+        "$0.00" in result["content"] and "$650.00 would be your responsibility" in result["content"]
+    )
+    assert "if the entire recorded expense" in result["content"].lower()
+    assert len(result["sources"]) == 2
+    assert all(any(s["excerpt"] in p["excerpt"] for p in passages) for s in result["sources"])
+
+
+def test_conditional_fallback_never_invents_a_deductible_or_amount():
+    from app.services.chat_guidance import conditional_fallback
+
+    assert (
+        conditional_fallback(
+            {"question": "What is the deductible?", "reportedExpenseTotal": "650"}, [HIT]
+        )
+        is None
+    )
+    assert (
+        conditional_fallback(
+            {"question": "What is the deductible?"},
+            [{**HIT, "excerpt": "Flat deductible $1,000 per covered occurrence"}],
+        )
+        is None
+    )

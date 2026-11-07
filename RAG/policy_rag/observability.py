@@ -30,7 +30,9 @@ def span(name, **metadata):
         yield None
         return
     try:
-        manager = lf.start_as_current_observation(as_type="span", name=name, metadata=metadata)
+        manager = lf.start_as_current_observation(
+            as_type="span", name=name, input={"operation": name}, metadata=metadata
+        )
         current = manager.__enter__()
     except Exception:  # noqa: BLE001 - tracing must not affect policy processing
         logger.warning("Unable to start policy observation")
@@ -38,6 +40,10 @@ def span(name, **metadata):
         return
     try:
         yield current
+        try:
+            current.update(output={"status": "completed"})
+        except Exception:  # noqa: BLE001 - tracing must not affect policy processing
+            logger.warning("Unable to update policy observation")
     except BaseException:
         try:
             current.update(level="ERROR", status_message="Policy operation failed")

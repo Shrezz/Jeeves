@@ -6,6 +6,7 @@ from langgraph.types import interrupt
 from app.schemas.agents import Clarification, PacketDraft, StatusDraft
 
 from .context import AgentContext
+from .repair_status import reconcile_repair_status
 from .state import AgentState
 from .support import load_claim
 
@@ -22,6 +23,7 @@ def begin_request(state: AgentState) -> AgentState:
         "revision_count": 0,
         "questions": [],
         "action_result": None,
+        "clarified_repair_status": None,
         "artifact_version": 0,
     }
 
@@ -48,6 +50,9 @@ def clarify(state: AgentState) -> AgentState:
         "answer": None,
         "human_decision": None,
         "questions": [],
+        "clarified_repair_status": reconcile_repair_status(
+            reply.message, state.get("clarified_repair_status")
+        ),
     }
 
 

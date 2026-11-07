@@ -17,6 +17,7 @@ from .tracing import capture_synthetic_content, observation, sanitize_content
 
 _NODES = {
     "begin_request",
+    "scope_guard",
     "web_search",
     "router",
     "answer_claim",
@@ -33,6 +34,15 @@ def _summary(result: Any) -> dict[str, Any]:
     if not isinstance(result, dict):
         return {}
     summary = {}
+    scope = result.get("scope_decision")
+    if scope in {"allowed", "out_of_scope"}:
+        summary["scope_decision"] = scope
+    web_search = result.get("web_search")
+    if isinstance(web_search, dict):
+        summary["web_search_status"] = web_search.get("status", "unknown")
+        summary["web_result_count"] = len(web_search.get("results", []))
+    elif "web_search" in result:
+        summary["web_search_status"] = "not_requested"
     phase = result.get("phase")
     if phase in {
         "routed",
@@ -85,7 +95,23 @@ def _summary(result: Any) -> dict[str, Any]:
     evidence = result.get("evidence")
     if isinstance(evidence, (list, tuple)):
         summary["evidence_count"] = len(evidence)
+    if capture_synthetic_content():
+        for key in ("draft", "chat_reply", "review"):
+            value = result.get(key)
+            if value is not None:
+                if hasattr(value, "model_dump"):
+                    value = value.model_dump(mode="json")
+                summary[key] = sanitize_content(value)
     return summary
+
+
+def _input(name: str, args: tuple) -> dict[str, Any]:
+    value: dict[str, Any] = {"node": name}
+    if capture_synthetic_content() and args and isinstance(args[0], dict):
+        request = args[0].get("request")
+        if hasattr(request, "model_dump"):
+            value["request"] = sanitize_content(request.model_dump(mode="json"))
+    return value
 
 
 def instrument_node(name: str, node: Callable) -> Callable:
@@ -96,7 +122,7 @@ def instrument_node(name: str, node: Callable) -> Callable:
 
         @wraps(node)
         async def async_node(*args, **kwargs):
-            with observation(f"agent-{name}") as span:
+            with observation(f"agent-{name}", input=_input(name, args)) as span:
                 result = await node(*args, **kwargs)
                 span.update(output=_summary(result))
                 return result
@@ -105,7 +131,7 @@ def instrument_node(name: str, node: Callable) -> Callable:
 
     @wraps(node)
     def sync_node(*args, **kwargs):
-        with observation(f"agent-{name}") as span:
+        with observation(f"agent-{name}", input=_input(name, args)) as span:
             result = node(*args, **kwargs)
             span.update(output=_summary(result))
             return result
