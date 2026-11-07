@@ -1,0 +1,411 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+paths:
+  /claims:
+    get:
+      operationId: listClaims
+      responses:
+        "200":
+          description: The signed-in user's claim drafts
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Claim" }
+    post:
+      operationId: createClaim
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClaimInput" }
+      responses:
+        "201":
+          description: Claim draft saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Claim" }
+        "400": { $ref: "#/components/responses/InvalidInput" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /claims/{id}:
+    get:
+      operationId: getClaim
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+      responses:
+        "200":
+          description: Owned claim with saved messages and evidence
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClaimWorkspace" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /claims/{id}/messages:
+    post:
+      operationId: saveClaimMessage
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClaimMessageInput" }
+      responses:
+        "201":
+          description: Message or request recorded for future processing
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClaimMessage" }
+        "400": { $ref: "#/components/responses/InvalidInput" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /claims/{id}/guidance:
+    post:
+      operationId: requestClaimGuidance
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClaimGuidanceInput" }
+      responses:
+        "200":
+          description: Saved assistant guidance, or a pending generation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClaimGuidance" }
+        "400": { $ref: "#/components/responses/InvalidInput" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /claims/{id}/evidence/uploads:
+    post:
+      operationId: initiateClaimEvidence
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EvidenceUploadInput" }
+      responses:
+        "201":
+          description: Private evidence upload allocated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PolicyUpload" }
+        "400": { $ref: "#/components/responses/InvalidInput" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /claims/{id}/evidence/{evidenceId}/complete:
+    post:
+      operationId: completeClaimEvidence
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+        - $ref: "#/components/parameters/EvidenceId"
+      responses:
+        "200":
+          description: Evidence verified and saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClaimEvidence" }
+        "400": { $ref: "#/components/responses/InvalidInput" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /claims/{id}/evidence/{evidenceId}/document:
+    get:
+      operationId: downloadClaimEvidence
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+        - $ref: "#/components/parameters/EvidenceId"
+      responses:
+        "200":
+          description: Private evidence file
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /policies:
+    get:
+      operationId: listPolicies
+      summary: List the signed-in user's saved policies
+      responses:
+        "200":
+          description: Saved policies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Policy"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /policies/uploads:
+    post:
+      operationId: initiatePolicyUpload
+      summary: Create a private pending upload and a short-lived upload URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PolicyUploadInput"
+      responses:
+        "201":
+          description: Upload allocated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyUpload"
+        "400":
+          $ref: "#/components/responses/InvalidInput"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          description: Too many pending uploads
+  /policies/{id}/complete:
+    post:
+      operationId: completePolicyUpload
+      summary: Validate a PDF upload and save its policy details
+      parameters:
+        - $ref: "#/components/parameters/PolicyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PolicyDetailsInput"
+      responses:
+        "200":
+          description: Saved policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Policy"
+        "400":
+          $ref: "#/components/responses/InvalidInput"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /policies/{id}/document:
+    get:
+      operationId: downloadPolicyDocument
+      summary: Download a PDF owned by the signed-in user
+      parameters:
+        - $ref: "#/components/parameters/PolicyId"
+      responses:
+        "200":
+          description: Private PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+components:
+  parameters:
+    ClaimId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    EvidenceId:
+      name: evidenceId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    PolicyId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    Unauthorized:
+      description: Sign-in required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    InvalidInput:
+      description: Invalid request or PDF
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: Policy not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ClaimStatus:
+      type: string
+      enum: [Draft, Gathering evidence, Preparation requested, Package prepared, Filed by me with insurer, Insurer decision received, Resolved without filing]
+    ClaimInput:
+      type: object
+      required: [id, title]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        policyId: { type: ["string", "null"], format: uuid }
+    Claim:
+      type: object
+      required: [id, title, policyId, status, totalExpenses, latestUpdate, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        policyId: { type: ["string", "null"] }
+        status: { $ref: "#/components/schemas/ClaimStatus" }
+        totalExpenses: { type: number }
+        latestUpdate: { type: ["string", "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+    ClaimMessageInput:
+      type: object
+      required: [clientMessageId, content, kind]
+      properties:
+        clientMessageId: { type: string, format: uuid }
+        content: { type: string, maxLength: 12000 }
+        kind: { type: string, enum: [ask, preparation_request, status_update] }
+        expense: { type: ["number", "null"], minimum: 0, maximum: 100000000 }
+        status: { $ref: "#/components/schemas/ClaimStatus" }
+        attachmentIds:
+          type: array
+          maxItems: 10
+          items: { type: string, format: uuid }
+    ClaimMessage:
+      type: object
+      required: [id, claimId, content, kind, expense, status, processingStatus, attachmentIds, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        claimId: { type: string, format: uuid }
+        content: { type: string }
+        kind: { type: string, enum: [ask, preparation_request, status_update] }
+        expense: { type: ["number", "null"] }
+        status: { type: ["string", "null"] }
+        processingStatus: { type: string, enum: [saved_for_processing, recorded] }
+        attachmentIds:
+          type: array
+          items: { type: string, format: uuid }
+        createdAt: { type: string }
+    EvidenceUploadInput:
+      type: object
+      required: [fileName, size, contentType]
+      properties:
+        fileName: { type: string, minLength: 1, maxLength: 255 }
+        size: { type: integer, minimum: 1, maximum: 104857600 }
+        contentType: { type: string, enum: [application/pdf, image/png, image/jpeg, video/mp4, video/webm, video/quicktime] }
+    ClaimGuidanceInput:
+      type: object
+      required: [messageId]
+      properties:
+        messageId: { type: string, format: uuid }
+    ClaimGuidance:
+      type: object
+      required: [id, claimId, messageId, content, state, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        claimId: { type: string, format: uuid }
+        messageId: { type: string, format: uuid }
+        content: { type: ["string", "null"] }
+        state: { type: string, enum: [pending, ready, error] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+    ClaimEvidence:
+      type: object
+      required: [id, claimId, messageId, fileName, size, contentType, documentUrl, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        claimId: { type: string, format: uuid }
+        messageId: { type: ["string", "null"] }
+        fileName: { type: string }
+        size: { type: integer }
+        contentType: { type: string }
+        documentUrl: { type: string }
+        createdAt: { type: string }
+    ClaimWorkspace:
+      type: object
+      required: [claim, policy, messages, evidence, guidance]
+      properties:
+        claim: { $ref: "#/components/schemas/Claim" }
+        policy:
+          anyOf:
+            - $ref: "#/components/schemas/Policy"
+            - type: "null"
+        messages:
+          type: array
+          items: { $ref: "#/components/schemas/ClaimMessage" }
+        guidance:
+          type: array
+          items: { $ref: "#/components/schemas/ClaimGuidance" }
+        evidence:
+          type: array
+          items: { $ref: "#/components/schemas/ClaimEvidence" }
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+    PolicyUploadInput:
+      type: object
+      required: [fileName, size]
+      properties:
+        fileName: { type: string, minLength: 1, maxLength: 255, pattern: '^[^/\\]+[.][pP][dD][fF]$' }
+        size: { type: integer, minimum: 1, maximum: 20971520 }
+    PolicyDetailsInput:
+      type: object
+      required: [label]
+      properties:
+        label: { type: string, minLength: 1, maxLength: 120 }
+        deductible: { type: ["number", "null"], minimum: 0, maximum: 100000000 }
+    PolicyUpload:
+      type: object
+      required: [id, uploadURL]
+      properties:
+        id: { type: string, format: uuid }
+        uploadURL: { type: string }
+    Policy:
+      type: object
+      required: [id, label, fileName, size, deductible, status, createdAt, documentUrl]
+      properties:
+        id: { type: string, format: uuid }
+        label: { type: string }
+        fileName: { type: string }
+        size: { type: integer }
+        deductible: { type: ["number", "null"] }
+        status: { type: string, enum: [saved] }
+        createdAt: { type: string }
+        documentUrl: { type: string }
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
