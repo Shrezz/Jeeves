@@ -10,13 +10,14 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import {
-  getGetClaimQueryKey,
+  getGetClaimReviewQueryKey,
   getListClaimsQueryKey,
-  useGetClaim,
+  useGetClaimReview,
   useListClaims,
 } from '@workspace/api-client-react';
-import type { Claim, ClaimWorkspace } from '@workspace/api-client-react';
+import type { Claim, ClaimReview } from '@workspace/api-client-react';
 import { Btn, Field, Notice, Panel, Status, cx, inputCls } from '@/components/cw';
+import { ReviewActions } from '@/components/review-actions';
 
 function money(value: number) {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(value);
@@ -32,7 +33,7 @@ function dateLabel(value: string | null | undefined) {
 
 function claimTone(status: string): 'ok' | 'pending' | 'neutral' {
   if (status === 'Resolved without filing' || status === 'Insurer decision received') return 'ok';
-  if (status === 'Preparation requested' || status === 'Package prepared' || status === 'Filed by me with insurer') return 'pending';
+  if (status === 'Preparation requested' || status === 'Package prepared' || status === 'Submitted in Claimwise' || status === 'Filed by me with insurer') return 'pending';
   return 'neutral';
 }
 
@@ -53,7 +54,7 @@ function ReviewHeader({
           <ArrowLeft className="h-4 w-4" aria-hidden />
         </Link>
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Review package</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Review Claim</p>
           <h1 className="truncate font-display text-2xl" data-testid="text-claim-title">
             {claim?.title ?? 'Your saved claim information'}
           </h1>
@@ -101,31 +102,22 @@ function EmptyPanel({ children }: { children: string }) {
 }
 
 function ReviewPanels({
-  workspace,
+  review,
   claimLoading,
   claimError,
+  reviewReady,
   onRetryClaim,
 }: {
-  workspace: ClaimWorkspace | undefined;
+  review: ClaimReview | undefined;
   claimLoading: boolean;
   claimError: boolean;
+  reviewReady: boolean;
   onRetryClaim: () => void;
 }) {
+  const workspace = review?.workspace;
   const claim = workspace?.claim;
-  const incidentMessages = (workspace?.messages ?? [])
-    .filter((message) => message.kind === 'ask' && message.content.trim().length > 0)
-    .slice()
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  const expenseMessages = (workspace?.messages ?? [])
-    .filter((message) => message.expense !== null && message.expense !== undefined);
-  const notes = (workspace?.messages ?? [])
-    .filter((message) => message.kind === 'preparation_request')
-    .filter((message) => {
-      const content = message.content.trim().replace(/[.!?]+$/, '').trim().toLowerCase();
-      return content.length > 0 && content !== 'preparation requested';
-    })
-    .slice()
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const incidentMessages = review?.incidentSummary ?? [];
+  const expenseMessages = review?.expenses ?? [];
 
   if (claimLoading) return <ReviewLoadingPanels />;
 
@@ -198,54 +190,19 @@ function ReviewPanels({
         </Panel>
 
         <Panel title={<span className="flex items-center gap-2"><Quote className="h-3.5 w-3.5" aria-hidden /> Cited clauses</span>}>
-          <EmptyPanel>No clauses are stored for review. Policy labels or general guidance are not treated as cited policy language.</EmptyPanel>
+          {review?.citedClauses.length && !claimError ? <ul className="list-disc space-y-2 pl-5 text-sm">{review.citedClauses.map((clause, i) => <li key={i}>{clause}</li>)}</ul> : <EmptyPanel>No cited policy language is available. Policy wording has not been analyzed.</EmptyPanel>}
         </Panel>
       </div>
 
       <div className="space-y-6">
         <Panel title="Reviewer result">
-          <EmptyPanel>No reviewer assessment is stored. This page shows saved claim information only; no package has been generated or reviewed.</EmptyPanel>
+          {review && !claimError ? <p className="text-sm leading-6" data-testid="text-reviewer-result">{review.reviewerResult}</p> : <EmptyPanel>Review information is unavailable until the request succeeds.</EmptyPanel>}
         </Panel>
         <Panel title="Missing fields">
-          <EmptyPanel>No missing-field assessment is stored. Claimwise does not infer missing items on this page.</EmptyPanel>
+          {review && !claimError ? (review.missingFields.length ? <ul className="list-disc space-y-2 pl-5 text-sm" data-testid="list-missing-fields">{review.missingFields.map((field) => <li key={field}>{field}</li>)}</ul> : <p className="text-sm text-muted-foreground">No basic information gaps found. Insurer-specific requirements have not been assessed.</p>) : <EmptyPanel>Missing-field checks are unavailable until the request succeeds.</EmptyPanel>}
         </Panel>
-        <Panel title="Your comments">
-          {claimError ? (
-            <EmptyPanel>Saved preparation notes could not be loaded. Retry the claim request to view them.</EmptyPanel>
-          ) : notes.length ? (
-            <div className="space-y-3">
-              {notes.map((note) => (
-                <div key={note.id} className="rounded-xl border border-card-border bg-background/60 p-3" data-testid={`text-preparation-note-${note.id}`}>
-                  <p className="mb-1 font-mono text-[11px] text-muted-foreground">{dateLabel(note.createdAt) ?? 'Date not recorded'} · Saved preparation note</p>
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed">{note.content}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <Field id="review-comments" label="Notes for the package" hint="Read-only. Comment editing and saving are not available here.">
-              <textarea
-                id="review-comments"
-                rows={3}
-                className={cx(inputCls, 'resize-none opacity-80')}
-                value=""
-                readOnly
-                placeholder="No saved preparation notes."
-                aria-readonly="true"
-                data-testid="input-comments"
-              />
-            </Field>
-          )}
-        </Panel>
-        <Notice tone="info" title="Saved information, not a prepared package">
-          This view brings together details already saved to your claim. It does not generate a review, decide coverage, or submit anything to your insurer.
-        </Notice>
+        <ReviewActions key={claim?.id ?? 'unavailable'} review={review} ready={reviewReady} onReload={onRetryClaim} />
         <div className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            <Btn variant="outline" disabled aria-disabled="true" title="Editing is not available in the review view" data-testid="button-edit-review">Edit</Btn>
-            <Btn variant="ghost" disabled aria-disabled="true" title="This status action is not available here" data-testid="button-resolve">Resolve without filing</Btn>
-            <Btn className="ml-auto" disabled aria-disabled="true" title="Package generation is not available" data-testid="button-approve"><ClipboardCheck className="h-4 w-4" aria-hidden /> Approve &amp; prepare</Btn>
-          </div>
-          <p className="text-xs leading-relaxed text-muted-foreground">These actions are unavailable because Claimwise does not yet support package generation or status changes from this page.</p>
           {claim && (
             <Link
               href={`/workspace/claim/${encodeURIComponent(claim.id)}`}
@@ -273,21 +230,21 @@ export default function ReviewPackagePage() {
   const claims = claimsQuery.data ?? [];
   const selectedClaim = claims.find((claim) => claim.id === selectedClaimId) ?? claims[0];
   const claimId = selectedClaim?.id ?? '';
-  const claimQuery = useGetClaim(claimId, {
+  const claimQuery = useGetClaimReview(claimId, {
     query: {
       enabled: !!claimId,
-      queryKey: getGetClaimQueryKey(claimId),
-      staleTime: 10000,
+      queryKey: getGetClaimReviewQueryKey(claimId),
+      staleTime: 0,
       refetchOnWindowFocus: true,
     },
   });
-  const workspace = claimQuery.data?.claim.id === claimId ? claimQuery.data : undefined;
-  const isClaimLoading = !!claimId && (claimQuery.isLoading || (!workspace && claimQuery.isFetching));
+  const review = claimQuery.data?.workspace.claim.id === claimId ? claimQuery.data : undefined;
+  const isClaimLoading = !!claimId && (claimQuery.isLoading || (!review && claimQuery.isFetching));
   const listLoading = claimsQuery.isLoading;
   const listFailed = claimsQuery.isError && (!claimsQuery.data || claimsQuery.data.length === 0);
 
   useEffect(() => {
-    document.title = 'Review Package — Claimwise';
+    document.title = 'Review Claim — Claimwise';
   }, []);
 
   return (
@@ -297,7 +254,7 @@ export default function ReviewPackagePage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Claim preparation</p>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">A read-only view of information saved to your account. No package has been prepared.</p>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">Review your saved information, add comments, and submit the record within Claimwise.</p>
           </div>
           {claims.length > 0 && (
             <label className="flex w-full flex-col gap-1.5 text-xs font-semibold text-muted-foreground sm:w-auto">
@@ -344,17 +301,18 @@ export default function ReviewPackagePage() {
           <div className="space-y-6">
             <Panel title="Reviewer result"><EmptyPanel>No reviewer assessment is stored.</EmptyPanel></Panel>
             <Panel title="Missing fields"><EmptyPanel>No missing-field assessment is stored.</EmptyPanel></Panel>
-            <Panel title="Your comments"><Field id="empty-review-comments" label="Notes for the package" hint="Read-only. Comment editing and saving are not available here."><textarea id="empty-review-comments" rows={3} className={cx(inputCls, 'resize-none opacity-80')} readOnly value="" placeholder="No saved preparation notes." aria-readonly="true" /></Field></Panel>
+            <Panel title="Your Comments"><Field id="empty-review-comments" label="Your comments" hint="Choose a saved claim before adding comments."><textarea id="empty-review-comments" rows={3} className={cx(inputCls, 'resize-none opacity-80')} disabled value="" placeholder="No claim selected." /></Field></Panel>
             <Notice tone="info" title="Saved information, not a prepared package">Claimwise has no saved claims in this account yet. This view does not generate a package or submit anything to your insurer.</Notice>
-            <div className="space-y-3"><div className="flex flex-wrap gap-2"><Btn variant="outline" disabled aria-disabled="true">Edit</Btn><Btn variant="ghost" disabled aria-disabled="true">Resolve without filing</Btn><Btn className="ml-auto" disabled aria-disabled="true"><ClipboardCheck className="h-4 w-4" aria-hidden /> Approve &amp; prepare</Btn></div><p className="text-xs text-muted-foreground">Actions become available only when supported by the product.</p><Link href="/workspace/claim" data-testid="link-start-claim" className="inline-flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"><FileText className="h-4 w-4" aria-hidden /> Start a claim</Link></div>
+            <div className="space-y-3"><div className="flex flex-wrap gap-2"><Btn variant="outline" disabled aria-disabled="true">Edit</Btn><Btn variant="ghost" disabled aria-disabled="true">Resolve without filing</Btn><Btn className="ml-auto" disabled data-testid="button-submit-claim"><ClipboardCheck className="h-4 w-4" aria-hidden /> Submit Your Claim</Btn></div><p className="text-xs text-muted-foreground">Submission is available after a saved claim’s review data loads successfully.</p><Link href="/workspace/claim" data-testid="link-start-claim" className="inline-flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"><FileText className="h-4 w-4" aria-hidden /> Start a claim</Link></div>
           </div>
         </div>
       ) : (
         <ReviewPanels
           key={claimId}
-          workspace={workspace}
+          review={review}
           claimLoading={isClaimLoading}
           claimError={claimQuery.isError}
+          reviewReady={!!review && claimQuery.isSuccess && !claimQuery.isFetching}
           onRetryClaim={() => void claimQuery.refetch()}
         />
       )}

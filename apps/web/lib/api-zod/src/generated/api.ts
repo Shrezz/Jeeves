@@ -8,11 +8,63 @@
 import * as zod from 'zod';
 
 
+export const ListJeevConversationsResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "title": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListJeevConversationsResponse = zod.array(ListJeevConversationsResponseItem)
+
+
+export const GetJeevConversationParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const GetJeevConversationResponse = zod.object({
+  "conversation": zod.object({
+  "id": zod.string().uuid(),
+  "title": zod.string(),
+  "updatedAt": zod.string()
+}),
+  "messages": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "content": zod.string(),
+  "reply": zod.string().nullable(),
+  "replyState": zod.enum(['pending', 'ready', 'error']),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}))
+})
+
+
+export const SendJeevMessageParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const sendJeevMessageBodyContentMax = 12000;
+
+
+
+export const SendJeevMessageBody = zod.object({
+  "messageId": zod.string().uuid(),
+  "content": zod.string().min(1).max(sendJeevMessageBodyContentMax)
+})
+
+export const SendJeevMessageResponse = zod.object({
+  "id": zod.string().uuid(),
+  "content": zod.string(),
+  "reply": zod.string().nullable(),
+  "replyState": zod.enum(['pending', 'ready', 'error']),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
 export const ListClaimsResponseItem = zod.object({
   "id": zod.string().uuid(),
   "title": zod.string(),
   "policyId": zod.string().nullable(),
-  "status": zod.enum(['Draft', 'Gathering evidence', 'Preparation requested', 'Package prepared', 'Filed by me with insurer', 'Insurer decision received', 'Resolved without filing']),
+  "status": zod.enum(['Draft', 'Gathering evidence', 'Preparation requested', 'Package prepared', 'Submitted in Claimwise', 'Filed by me with insurer', 'Insurer decision received', 'Resolved without filing']),
   "totalExpenses": zod.number(),
   "latestUpdate": zod.string().nullable(),
   "createdAt": zod.string(),
@@ -35,7 +87,7 @@ export const CreateClaimResponse = zod.object({
   "id": zod.string().uuid(),
   "title": zod.string(),
   "policyId": zod.string().nullable(),
-  "status": zod.enum(['Draft', 'Gathering evidence', 'Preparation requested', 'Package prepared', 'Filed by me with insurer', 'Insurer decision received', 'Resolved without filing']),
+  "status": zod.enum(['Draft', 'Gathering evidence', 'Preparation requested', 'Package prepared', 'Submitted in Claimwise', 'Filed by me with insurer', 'Insurer decision received', 'Resolved without filing']),
   "totalExpenses": zod.number(),
   "latestUpdate": zod.string().nullable(),
   "createdAt": zod.string(),
@@ -52,7 +104,7 @@ export const GetClaimResponse = zod.object({
   "id": zod.string().uuid(),
   "title": zod.string(),
   "policyId": zod.string().nullable(),
-  "status": zod.enum(['Draft', 'Gathering evidence', 'Preparation requested', 'Package prepared', 'Filed by me with insurer', 'Insurer decision received', 'Resolved without filing']),
+  "status": zod.enum(['Draft', 'Gathering evidence', 'Preparation requested', 'Package prepared', 'Submitted in Claimwise', 'Filed by me with insurer', 'Insurer decision received', 'Resolved without filing']),
   "totalExpenses": zod.number(),
   "latestUpdate": zod.string().nullable(),
   "createdAt": zod.string(),
@@ -101,6 +153,275 @@ export const GetClaimResponse = zod.object({
 })
 
 
+export const GetClaimReviewParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const getClaimReviewResponseVersionMin = 0;
+
+
+
+export const GetClaimReviewResponse = zod.object({
+  "workspace": zod.object({
+  "claim": zod.object({
+  "id": zod.string().uuid(),
+  "title": zod.string(),
+  "policyId": zod.string().nullable(),
+  "status": zod.enum(['Draft', 'Gathering evidence', 'Preparation requested', 'Package prepared', 'Submitted in Claimwise', 'Filed by me with insurer', 'Insurer decision received', 'Resolved without filing']),
+  "totalExpenses": zod.number(),
+  "latestUpdate": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}),
+  "policy": zod.union([zod.object({
+  "id": zod.string().uuid(),
+  "label": zod.string(),
+  "fileName": zod.string(),
+  "size": zod.number().int(),
+  "deductible": zod.number().nullable(),
+  "status": zod.enum(['saved']),
+  "createdAt": zod.string(),
+  "documentUrl": zod.string()
+}),zod.null()]),
+  "messages": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "claimId": zod.string().uuid(),
+  "content": zod.string(),
+  "kind": zod.enum(['ask', 'preparation_request', 'status_update']),
+  "expense": zod.number().nullable(),
+  "status": zod.string().nullable(),
+  "processingStatus": zod.enum(['saved_for_processing', 'recorded']),
+  "attachmentIds": zod.array(zod.string().uuid()),
+  "createdAt": zod.string()
+})),
+  "guidance": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "claimId": zod.string().uuid(),
+  "messageId": zod.string().uuid(),
+  "content": zod.string().nullable(),
+  "state": zod.enum(['pending', 'ready', 'error']),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})),
+  "evidence": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "claimId": zod.string().uuid(),
+  "messageId": zod.string().nullable(),
+  "fileName": zod.string(),
+  "size": zod.number().int(),
+  "contentType": zod.string(),
+  "documentUrl": zod.string(),
+  "createdAt": zod.string()
+}))
+}),
+  "incidentSummary": zod.array(zod.object({
+  "id": zod.string(),
+  "content": zod.string(),
+  "createdAt": zod.string()
+})),
+  "expenses": zod.array(zod.object({
+  "id": zod.string(),
+  "content": zod.string(),
+  "expense": zod.number(),
+  "createdAt": zod.string()
+})),
+  "citedClauses": zod.array(zod.string()),
+  "reviewerResult": zod.string(),
+  "missingFields": zod.array(zod.string()),
+  "comments": zod.string(),
+  "version": zod.number().int().min(getClaimReviewResponseVersionMin),
+  "sourceUpdatedAt": zod.coerce.date(),
+  "submittedAt": zod.string().nullable()
+})
+
+
+export const SaveClaimReviewCommentsParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const saveClaimReviewCommentsBodyCommentsMax = 12000;
+
+export const saveClaimReviewCommentsBodyVersionMin = 0;
+
+
+
+export const SaveClaimReviewCommentsBody = zod.object({
+  "comments": zod.string().max(saveClaimReviewCommentsBodyCommentsMax),
+  "version": zod.number().int().min(saveClaimReviewCommentsBodyVersionMin)
+})
+
+export const saveClaimReviewCommentsResponseVersionMin = 0;
+
+
+
+export const SaveClaimReviewCommentsResponse = zod.object({
+  "workspace": zod.object({
+  "claim": zod.object({
+  "id": zod.string().uuid(),
+  "title": zod.string(),
+  "policyId": zod.string().nullable(),
+  "status": zod.enum(['Draft', 'Gathering evidence', 'Preparation requested', 'Package prepared', 'Submitted in Claimwise', 'Filed by me with insurer', 'Insurer decision received', 'Resolved without filing']),
+  "totalExpenses": zod.number(),
+  "latestUpdate": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}),
+  "policy": zod.union([zod.object({
+  "id": zod.string().uuid(),
+  "label": zod.string(),
+  "fileName": zod.string(),
+  "size": zod.number().int(),
+  "deductible": zod.number().nullable(),
+  "status": zod.enum(['saved']),
+  "createdAt": zod.string(),
+  "documentUrl": zod.string()
+}),zod.null()]),
+  "messages": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "claimId": zod.string().uuid(),
+  "content": zod.string(),
+  "kind": zod.enum(['ask', 'preparation_request', 'status_update']),
+  "expense": zod.number().nullable(),
+  "status": zod.string().nullable(),
+  "processingStatus": zod.enum(['saved_for_processing', 'recorded']),
+  "attachmentIds": zod.array(zod.string().uuid()),
+  "createdAt": zod.string()
+})),
+  "guidance": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "claimId": zod.string().uuid(),
+  "messageId": zod.string().uuid(),
+  "content": zod.string().nullable(),
+  "state": zod.enum(['pending', 'ready', 'error']),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})),
+  "evidence": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "claimId": zod.string().uuid(),
+  "messageId": zod.string().nullable(),
+  "fileName": zod.string(),
+  "size": zod.number().int(),
+  "contentType": zod.string(),
+  "documentUrl": zod.string(),
+  "createdAt": zod.string()
+}))
+}),
+  "incidentSummary": zod.array(zod.object({
+  "id": zod.string(),
+  "content": zod.string(),
+  "createdAt": zod.string()
+})),
+  "expenses": zod.array(zod.object({
+  "id": zod.string(),
+  "content": zod.string(),
+  "expense": zod.number(),
+  "createdAt": zod.string()
+})),
+  "citedClauses": zod.array(zod.string()),
+  "reviewerResult": zod.string(),
+  "missingFields": zod.array(zod.string()),
+  "comments": zod.string(),
+  "version": zod.number().int().min(saveClaimReviewCommentsResponseVersionMin),
+  "sourceUpdatedAt": zod.coerce.date(),
+  "submittedAt": zod.string().nullable()
+})
+
+
+export const SubmitClaimReviewParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const submitClaimReviewBodyCommentsMax = 12000;
+
+export const submitClaimReviewBodyVersionMin = 0;
+
+
+
+export const SubmitClaimReviewBody = zod.object({
+  "comments": zod.string().max(submitClaimReviewBodyCommentsMax),
+  "version": zod.number().int().min(submitClaimReviewBodyVersionMin),
+  "sourceUpdatedAt": zod.coerce.date()
+})
+
+export const submitClaimReviewResponseVersionMin = 0;
+
+
+
+export const SubmitClaimReviewResponse = zod.object({
+  "workspace": zod.object({
+  "claim": zod.object({
+  "id": zod.string().uuid(),
+  "title": zod.string(),
+  "policyId": zod.string().nullable(),
+  "status": zod.enum(['Draft', 'Gathering evidence', 'Preparation requested', 'Package prepared', 'Submitted in Claimwise', 'Filed by me with insurer', 'Insurer decision received', 'Resolved without filing']),
+  "totalExpenses": zod.number(),
+  "latestUpdate": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}),
+  "policy": zod.union([zod.object({
+  "id": zod.string().uuid(),
+  "label": zod.string(),
+  "fileName": zod.string(),
+  "size": zod.number().int(),
+  "deductible": zod.number().nullable(),
+  "status": zod.enum(['saved']),
+  "createdAt": zod.string(),
+  "documentUrl": zod.string()
+}),zod.null()]),
+  "messages": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "claimId": zod.string().uuid(),
+  "content": zod.string(),
+  "kind": zod.enum(['ask', 'preparation_request', 'status_update']),
+  "expense": zod.number().nullable(),
+  "status": zod.string().nullable(),
+  "processingStatus": zod.enum(['saved_for_processing', 'recorded']),
+  "attachmentIds": zod.array(zod.string().uuid()),
+  "createdAt": zod.string()
+})),
+  "guidance": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "claimId": zod.string().uuid(),
+  "messageId": zod.string().uuid(),
+  "content": zod.string().nullable(),
+  "state": zod.enum(['pending', 'ready', 'error']),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})),
+  "evidence": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "claimId": zod.string().uuid(),
+  "messageId": zod.string().nullable(),
+  "fileName": zod.string(),
+  "size": zod.number().int(),
+  "contentType": zod.string(),
+  "documentUrl": zod.string(),
+  "createdAt": zod.string()
+}))
+}),
+  "incidentSummary": zod.array(zod.object({
+  "id": zod.string(),
+  "content": zod.string(),
+  "createdAt": zod.string()
+})),
+  "expenses": zod.array(zod.object({
+  "id": zod.string(),
+  "content": zod.string(),
+  "expense": zod.number(),
+  "createdAt": zod.string()
+})),
+  "citedClauses": zod.array(zod.string()),
+  "reviewerResult": zod.string(),
+  "missingFields": zod.array(zod.string()),
+  "comments": zod.string(),
+  "version": zod.number().int().min(submitClaimReviewResponseVersionMin),
+  "sourceUpdatedAt": zod.coerce.date(),
+  "submittedAt": zod.string().nullable()
+})
+
+
 export const SaveClaimMessageParams = zod.object({
   "id": zod.coerce.string().uuid()
 })
@@ -119,7 +440,7 @@ export const SaveClaimMessageBody = zod.object({
   "content": zod.string().max(saveClaimMessageBodyContentMax),
   "kind": zod.enum(['ask', 'preparation_request', 'status_update']),
   "expense": zod.number().min(saveClaimMessageBodyExpenseMin).max(saveClaimMessageBodyExpenseMax).nullish(),
-  "status": zod.enum(['Draft', 'Gathering evidence', 'Preparation requested', 'Package prepared', 'Filed by me with insurer', 'Insurer decision received', 'Resolved without filing']).optional(),
+  "status": zod.enum(['Draft', 'Gathering evidence', 'Preparation requested', 'Package prepared', 'Submitted in Claimwise', 'Filed by me with insurer', 'Insurer decision received', 'Resolved without filing']).optional(),
   "attachmentIds": zod.array(zod.string().uuid()).max(saveClaimMessageBodyAttachmentIdsMax).optional()
 })
 

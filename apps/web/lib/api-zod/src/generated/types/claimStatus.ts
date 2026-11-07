@@ -14,6 +14,7 @@ export const ClaimStatus = {
   Gathering_evidence: 'Gathering evidence',
   Preparation_requested: 'Preparation requested',
   Package_prepared: 'Package prepared',
+  Submitted_in_Claimwise: 'Submitted in Claimwise',
   Filed_by_me_with_insurer: 'Filed by me with insurer',
   Insurer_decision_received: 'Insurer decision received',
   Resolved_without_filing: 'Resolved without filing',

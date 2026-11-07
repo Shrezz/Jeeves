@@ -44,4 +44,13 @@ No credentials, real policy PDFs, evidence uploads, database contents, dependenc
 
 ## Current functional scope
 
-Authentication, policy uploads, user-owned dashboard/claims, persisted claim chat and evidence, AI text guidance, and manual status updates are implemented. Review Package displays saved source records but does not generate a formal reviewed package. The app does not submit claims to an insurer. Summary email delivery is not implemented.
+Authentication, private policy uploads, user-owned dashboard/claims, claim evidence, AI text guidance, and manual status updates are implemented.
+
+- Chat with Jeev is a separate conversational surface with its own persisted history and reply APIs; opening or sending a conversation does not create a claim.
+- Dashboard sections organize conversations, claims being prepared, and submitted records. Navigation and action labels reflect Prepare Your Claim and Review Claim.
+- Review Claim loads saved incident details, expenses, and basic completeness checks through an owned review API. Users can save comments or include them when submitting. Policy citations remain empty because policy wording is not analyzed.
+- Submit Your Claim becomes available after a successful review load. It saves an immutable, dated snapshot and comments, records a single submission event, and marks the record Submitted in Claimwise. Repeat submissions are idempotent; stale edits and foreign-account access are rejected.
+
+Submission is local to Claimwise; nothing is sent to an insurer and no coverage decision is made. Summary email delivery, insurer integration, PDF export, and amendments of submitted snapshots are not implemented.
+
+The schema now includes separate Jeev conversations/messages and claim review records. Apply reviewed, non-destructive schema changes to the target database before running these features. Repository upload does not transfer existing data or run migrations.

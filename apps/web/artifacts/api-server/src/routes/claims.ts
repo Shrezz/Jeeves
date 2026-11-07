@@ -9,6 +9,7 @@ import {
 import { ClaimRequestError, ownedClaim, serializeClaim, serializeClaimPolicy, serializeEvidence, serializeMessage, serializeGuidance } from "../lib/claims";
 import evidenceRouter from "./claim-evidence";
 import guidanceRouter from "./claim-guidance";
+import reviewRouter from "./claim-review";
 
 const router: IRouter = Router();
 
@@ -95,6 +96,9 @@ router.post("/claims/:id/messages", async (req, res): Promise<void> => {
   if (input.kind !== "status_update" && input.status) {
     throw new ClaimRequestError(400, "Use Update status to record a status.");
   }
+  if (input.status === "Submitted in Claimwise") {
+    throw new ClaimRequestError(400, "Use Review Claim to submit your reviewed information in Claimwise.");
+  }
   const result = await db.transaction(async (tx) => {
     const [claim] = await tx.select().from(claimsTable).where(and(
       eq(claimsTable.id, params.data.id), eq(claimsTable.ownerId, getAuth(req).userId!),
@@ -139,6 +143,7 @@ router.post("/claims/:id/messages", async (req, res): Promise<void> => {
 
 router.use(evidenceRouter);
 router.use(guidanceRouter);
+router.use(reviewRouter);
 
 router.use((error: unknown, req: import("express").Request, res: import("express").Response, next: import("express").NextFunction) => {
   if (res.headersSent) { next(error); return; }

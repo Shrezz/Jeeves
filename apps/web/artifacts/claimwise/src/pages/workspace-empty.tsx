@@ -6,7 +6,7 @@ type EmptyKind = 'review' | 'status';
 
 const content = {
   review: {
-    title: 'Review Package',
+    title: 'Review Claim',
     eyebrow: 'Policy review',
     description: 'There is no review package in your account. Claimwise does not currently create or store claim review packages.',
     detail: 'When this workflow is available, this page will show real information saved to your account. Nothing has been reviewed or prepared.',
