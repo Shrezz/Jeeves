@@ -39,6 +39,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(
   clerkMiddleware((req) => ({
+    authorizedParties: process.env.CLERK_AUTHORIZED_PARTIES?.split(",").map((origin) => origin.trim()).filter(Boolean),
     publishableKey: publishableKeyFromHost(
       getClerkProxyHost(req) ?? "",
       process.env.CLERK_PUBLISHABLE_KEY,

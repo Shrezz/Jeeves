@@ -6,7 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ClaimMessageInputKind } from './claimMessageInputKind';
-import type { ClaimStatus } from './claimStatus';
+import type { ManualClaimStatus } from './manualClaimStatus';
 
 export interface ClaimMessageInput {
   clientMessageId: string;
@@ -19,7 +19,7 @@ export interface ClaimMessageInput {
      * @nullable
      */
   expense?: number | null;
-  status?: ClaimStatus;
+  status?: ManualClaimStatus;
   /** @maxItems 10 */
   attachmentIds?: string[];
 }

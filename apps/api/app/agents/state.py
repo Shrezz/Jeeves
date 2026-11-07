@@ -22,6 +22,7 @@ Draft = CoverageDraft | StatusDraft | PacketDraft
 
 class AgentState(TypedDict, total=False):
     request: Required[AgentRequest]
+    chat_reply: dict
     run_id: str
     route: RouteDecision
     claim: ClaimSnapshot | None

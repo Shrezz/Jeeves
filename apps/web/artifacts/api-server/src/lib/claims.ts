@@ -1,9 +1,8 @@
 import { and, eq } from "drizzle-orm";
-import { db, claimsTable, type StoredClaim, type StoredClaimEvidence, type StoredClaimMessage, type StoredClaimGuidance, type StoredPolicy } from "@workspace/db";
+import { db, claimsTable, type StoredClaim, type StoredClaimEvidence, type StoredClaimMessage, type StoredClaimGuidance } from "@workspace/db";
 
-export class ClaimRequestError extends Error {
-  constructor(public status: 400 | 404, message: string) { super(message); }
-}
+export { ClaimRequestError } from "./claim-errors";
+import { ClaimRequestError } from "./claim-errors";
 
 export async function ownedClaim(id: string, ownerId: string) {
   const [claim] = await db.select().from(claimsTable).where(and(eq(claimsTable.id, id), eq(claimsTable.ownerId, ownerId)));
@@ -29,12 +28,8 @@ export function serializeEvidence(e: StoredClaimEvidence) {
 }
 
 export function serializeGuidance(g: StoredClaimGuidance) {
-  return { id: g.id, claimId: g.claimId, messageId: g.messageId, content: g.content, state: g.state,
+  return { id: g.id, claimId: g.claimId, messageId: g.messageId, content: g.content, sources: g.sources, ...(g.workflow ? {workflow:g.workflow} : {}), state: g.state,
     createdAt: g.createdAt.toISOString(), updatedAt: g.updatedAt.toISOString() };
 }
 
-export function serializeClaimPolicy(p: StoredPolicy) {
-  return { id: p.id, label: p.label, fileName: p.fileName, size: p.size,
-    deductible: p.deductible === null ? null : Number(p.deductible), status: "saved" as const,
-    createdAt: p.createdAt.toISOString(), documentUrl: `/api/policies/${p.id}/document` };
-}
+export { serializePolicy as serializeClaimPolicy } from "./serialize-policy";

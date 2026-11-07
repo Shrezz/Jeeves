@@ -13,18 +13,13 @@ import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage"
 import { setObjectAclPolicy } from "../lib/objectAcl";
 import { InvalidPolicyDocument, readPolicyPdf } from "../lib/policyDocuments";
 
+import { serializePolicy as serialize } from "../lib/serialize-policy";
+import { isLocalPolicy, readLocalPdf, indexLocalPolicy } from "../lib/local-policy-index";
+import { localPolicies } from "./local-policies";
+
 const router: IRouter = Router();
 const storage = new ObjectStorageService();
 const UPLOAD_LIFETIME_MS = 15 * 60 * 1000;
-
-function serialize(policy: StoredPolicy) {
-  return {
-    id: policy.id, label: policy.label, fileName: policy.fileName, size: policy.size,
-    deductible: policy.deductible === null ? null : Number(policy.deductible),
-    status: "saved" as const, createdAt: policy.createdAt.toISOString(),
-    documentUrl: `/api/policies/${policy.id}/document`,
-  };
-}
 
 router.use((req, res, next) => {
   if (req.method !== "GET" && req.get("sec-fetch-site") === "cross-site") {
@@ -33,6 +28,8 @@ router.use((req, res, next) => {
   }
   next();
 });
+
+if (process.env.LOCAL_RAG_ROOT) router.use(localPolicies);
 
 router.get("/policies", async (req, res): Promise<void> => {
   const policies = await db.select().from(policiesTable).where(and(
@@ -57,10 +54,12 @@ router.post("/policies/uploads", async (req, res): Promise<void> => {
     res.status(429).json({ error: "Too many unfinished uploads. Please wait 15 minutes before trying again." });
     return;
   }
-  const uploadURL = await storage.getObjectEntityUploadURL();
+  const id = randomUUID();
+  const local = Boolean(process.env.LOCAL_RAG_ROOT);
+  const uploadURL = local ? `/api/policies/${id}/content` : await storage.getObjectEntityUploadURL();
   const [policy] = await db.insert(policiesTable).values({
-    ownerId, fileName: parsed.data.fileName, size: parsed.data.size,
-    objectPath: storage.normalizeObjectEntityPath(uploadURL),
+    id, ownerId, fileName: parsed.data.fileName, size: parsed.data.size,
+    objectPath: local ? "local-db:" + id : storage.normalizeObjectEntityPath(uploadURL),
     label: parsed.data.fileName.replace(/\.pdf$/i, "").slice(0, 120),
   }).returning();
   res.status(201).json(InitiatePolicyUploadResponse.parse({ id: policy.id, uploadURL }));
@@ -87,6 +86,15 @@ router.post("/policies/:id/complete", async (req, res): Promise<void> => {
   }
   if (policy.createdAt.getTime() < Date.now() - UPLOAD_LIFETIME_MS) {
     res.status(400).json({ error: "This upload expired. Please choose the PDF and try again." });
+    return;
+  }
+  if (isLocalPolicy(policy)) {
+    if (!await readLocalPdf(policy.id, ownerId)) { res.status(400).json({ error: "Transfer the PDF before saving." }); return; }
+    const [saved] = await db.update(policiesTable).set({ status: "saved", label: body.data.label.trim(),
+      deductible: body.data.deductible == null ? null : body.data.deductible.toFixed(2) })
+      .where(and(owned, eq(policiesTable.status, "pending"))).returning();
+    const row = saved ?? (await db.select().from(policiesTable).where(owned))[0];
+    res.json(CompletePolicyUploadResponse.parse(serialize(await indexLocalPolicy(row))));
     return;
   }
   try {
@@ -147,14 +155,20 @@ router.get("/policies/:id/document", async (req, res): Promise<void> => {
     return;
   }
   try {
-    const file = await storage.getObjectEntityFile(policy.objectPath);
     res.set({
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename="policy.pdf"; filename*=UTF-8''${encodeURIComponent(policy.fileName).replace(/['()]/g, (character) => `%${character.charCodeAt(0).toString(16)}`)}`,
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
     });
-    await pipeline(file.createReadStream(), res);
+    if (isLocalPolicy(policy)) {
+      const bytes = await readLocalPdf(policy.id, policy.ownerId);
+      if (!bytes) { res.sendStatus(404); return; }
+      res.send(bytes);
+    } else {
+      const file = await storage.getObjectEntityFile(policy.objectPath);
+      await pipeline(file.createReadStream(), res);
+    }
   } catch (error) {
     if (res.headersSent) return;
     if (error instanceof ObjectNotFoundError) {

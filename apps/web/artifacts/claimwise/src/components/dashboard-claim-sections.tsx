@@ -1,6 +1,7 @@
 import { Link } from 'wouter';
 import { ClipboardCheck, FilePenLine } from 'lucide-react';
 import type { Claim } from '@workspace/api-client-react';
+import { claimStatusLabel } from '@workspace/domain';
 import { Btn } from '@/components/cw';
 import { DashboardJeevChat } from '@/components/dashboard-jeev-chat';
 
@@ -26,7 +27,7 @@ const sections = [
 ] as const;
 
 function isSubmitted(status: Claim['status']) {
-  return status === 'Submitted in Claimwise' || status === 'Filed by me with insurer' || status === 'Insurer decision received';
+  return status === 'submitted_in_claimwise' || status === 'filed_by_user' || status === 'insurer_decision_received';
 }
 
 export function DashboardClaimSections({
@@ -66,7 +67,7 @@ export function DashboardClaimSections({
                       <article key={claim.id} data-testid={`card-claim-${claim.id}`} className="rounded-xl border border-card-border p-4">
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <h3 data-testid={`text-claim-title-${claim.id}`} className="min-w-0 break-words font-semibold">{claim.title}</h3>
-                          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${claim.status === 'Preparation requested' || claim.status === 'Gathering evidence' ? 'bg-accent text-accent-foreground' : 'bg-secondary text-secondary-foreground'}`}>{claim.status}</span>
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${claim.status === 'preparation_requested' || claim.status === 'gathering_evidence' ? 'bg-accent text-accent-foreground' : 'bg-secondary text-secondary-foreground'}`}>{claimStatusLabel(claim.status)}</span>
                         </div>
                         {claim.latestUpdate && <p className="mt-2 line-clamp-2 break-words text-sm text-muted-foreground">{claim.latestUpdate}</p>}
                         <p className="mt-2 text-xs leading-5 text-muted-foreground">Updated {new Date(claim.updatedAt).toLocaleDateString()} · {new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(claim.totalExpenses)} recorded expenses</p>

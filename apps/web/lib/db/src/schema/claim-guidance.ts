@@ -1,4 +1,4 @@
-import { foreignKey, index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { foreignKey, index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { claimsTable } from "./claims";
@@ -9,6 +9,8 @@ export const claimGuidanceTable = pgTable("claim_guidance", {
   claimId: uuid("claim_id").notNull().references(() => claimsTable.id, { onDelete: "cascade" }),
   messageId: uuid("message_id").notNull().unique().references(() => claimMessagesTable.id, { onDelete: "cascade" }),
   content: text("content"),
+  workflow: jsonb("workflow").$type<Record<string, unknown>>(),
+  sources: jsonb("sources").$type<{chunkId: string; page: number; section: string; excerpt: string}[]>().notNull().default([]),
   state: text("state", { enum: ["pending", "ready", "error"] }).notNull().default("pending"),
   leaseId: uuid("lease_id").notNull(),
   attempts: integer("attempts").notNull().default(1),

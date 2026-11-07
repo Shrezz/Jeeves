@@ -67,8 +67,11 @@ export default defineConfig({
   server: {
     port,
     strictPort: true,
-    host: '0.0.0.0',
-    allowedHosts: true,
+    host: process.env.LOCAL_WEB_HOST ?? '0.0.0.0',
+    allowedHosts: process.env.LOCAL_WEB_HOST ? ['localhost'] : true,
+    proxy: process.env.LOCAL_API_PROXY_TARGET ? {
+      '/api': { target: process.env.LOCAL_API_PROXY_TARGET, changeOrigin: false },
+    } : undefined,
     fs: {
       strict: true,
     },

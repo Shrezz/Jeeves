@@ -17,6 +17,7 @@ from app.schemas.agents import (
     StatusDraft,
     Text,
 )
+from app.schemas.domain import RunStatus
 from app.services.rag.types import Citation
 
 
@@ -68,15 +69,7 @@ class RunView(Contract):
     run_id: str
     mode: Literal["fixture", "integrated"]
     model_mode: Literal["fixture", "nebius", "injected"] = "injected"
-    status: Literal[
-        "running",
-        "awaiting_information",
-        "awaiting_review",
-        "completed",
-        "blocked",
-        "rejected",
-        "failed",
-    ]
+    status: RunStatus
     route: Route | None = None
     stages: list[str] = Field(default_factory=list)
     answer: ReviewedAnswer | None = None

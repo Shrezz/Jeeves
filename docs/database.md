@@ -1,5 +1,10 @@
 # Database setup and verification
 
+> Historical prototype schema. The shared application now extends the UI schema
+> using Clerk IDs. Follow [shared identity and status](identity-status-mapping.md)
+> for its migration directory and commands. Do not apply the prototype commands
+> below to the UI database. The verifier below checks only the prototype schema.
+
 This database-only increment implements the six-table contract in section 9 of
 `SV-InsuranceAgent-requirements.pdf` v0.2. It does not integrate authentication,
 API persistence, agents, a live embedding model, or the browser UI.
@@ -21,7 +26,7 @@ batch on failure. Missing/empty directories, duplicate migration numbers, change
 applied files, missing history files, and out-of-order history are errors, not success.
 Checksums use LF-normalized UTF-8 so Windows checkouts do not cause false drift.
 
-The canonical migration directory is `apps/api/migrations/`, NOT the older overlay's
+The prototype migration directory is `apps/api/migrations/`, NOT the older overlay's
 `apps/api/db/migrations/`. Paths are resolved from the module, not the working directory.
 Do not apply both migration trees. An already-applied overlay schema or a legacy ledger
 without checksums needs explicit reconciliation: this runner refuses to adopt or drop it.

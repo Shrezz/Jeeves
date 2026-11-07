@@ -12,3 +12,7 @@ reports/*
 !reports/.gitkeep
 data/uploads/
 data/generated/
+
+# Local UI/API configuration (never commit credentials)
+.env.local
+.DS_Store

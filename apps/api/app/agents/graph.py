@@ -41,14 +41,14 @@ def after_clarification(state: AgentState) -> str:
     return state["route"].route or "router"
 
 
-def build_graph(checkpointer: BaseCheckpointSaver):
+def build_graph(checkpointer: BaseCheckpointSaver, *, reviewed_chat_node=None):
     """Inject a checkpointer; the demo uses memory, deployment supplies durable storage."""
     graph = StateGraph(AgentState, context_schema=AgentContext)
     for name, node in {
         "begin_request": begin_request,
         "web_search": web_search,
         "router": router,
-        "answer_claim": answer_claim,
+        "answer_claim": reviewed_chat_node or answer_claim,
         "save_claim_status": save_claim_status,
         "file_claim": file_claim,
         "reviewer": reviewer,
@@ -63,7 +63,11 @@ def build_graph(checkpointer: BaseCheckpointSaver):
     routes = ["answer_claim", "save_claim_status", "file_claim"]
     graph.add_conditional_edges("router", selected_agent, routes + ["clarify"])
     for name in routes:
-        graph.add_conditional_edges(name, after_draft, ["reviewer", "clarify"])
+        if name == "answer_claim" and reviewed_chat_node is not None:
+            # The conversational answer node includes quote validation and independent review.
+            graph.add_edge(name, END)
+        else:
+            graph.add_conditional_edges(name, after_draft, ["reviewer", "clarify"])
     graph.add_conditional_edges("reviewer", after_review, routes + ["clarify", "human_review", END])
     graph.add_conditional_edges("human_review", after_human, routes + ["commit_action", END])
     graph.add_conditional_edges("clarify", after_clarification, routes + ["router"])

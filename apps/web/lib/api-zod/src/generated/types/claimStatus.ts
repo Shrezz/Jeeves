@@ -10,12 +10,12 @@ export type ClaimStatus = typeof ClaimStatus[keyof typeof ClaimStatus];
 
 
 export const ClaimStatus = {
-  Draft: 'Draft',
-  Gathering_evidence: 'Gathering evidence',
-  Preparation_requested: 'Preparation requested',
-  Package_prepared: 'Package prepared',
-  Submitted_in_Claimwise: 'Submitted in Claimwise',
-  Filed_by_me_with_insurer: 'Filed by me with insurer',
-  Insurer_decision_received: 'Insurer decision received',
-  Resolved_without_filing: 'Resolved without filing',
+  draft: 'draft',
+  gathering_evidence: 'gathering_evidence',
+  preparation_requested: 'preparation_requested',
+  prepared: 'prepared',
+  filed_by_user: 'filed_by_user',
+  insurer_decision_received: 'insurer_decision_received',
+  resolved_without_filing: 'resolved_without_filing',
+  submitted_in_claimwise: 'submitted_in_claimwise',
 } as const;

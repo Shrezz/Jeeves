@@ -171,7 +171,8 @@ def test_status_review_is_separate_and_needs_no_policy_lookup():
     context.generator.outputs.append(
         StatusDraft(
             note="User reports the insurer approved the claim.",
-            status="user_reported_approved",
+            status="insurer_decision_received",
+            insurer_outcome="approved",
         )
     )
     state = make_state("save_claim_status", message="The insurer approved my claim.")
@@ -182,7 +183,7 @@ def test_status_review_is_separate_and_needs_no_policy_lookup():
     assert "STATUS REVIEW" in context.reviewer.calls[0]["prompt"]
     assert "COVERAGE REVIEW" not in context.reviewer.calls[0]["prompt"]
     assert not context.policies.calls
-    assert context.claims.claim.status == "open"  # Proposal has not been saved.
+    assert context.claims.claim.status == "draft"  # Proposal has not been saved.
 
 
 @pytest.mark.parametrize(
@@ -210,6 +211,37 @@ def test_packet_preserves_combined_request_and_allows_zero_payment():
     assert state["estimate"].estimated_payment == 0
     assert "PACKET REVIEW" in context.reviewer.calls[0]["prompt"]
     assert context.generator.calls[0]["payload"]["request"]["message"] == state["request"].message
+
+
+def test_optional_invoice_is_reviewed_without_requiring_an_upload():
+    context = make_context()
+    context.generator.outputs.append(
+        packet_draft(
+            context,
+            coverage=coverage_draft(missing_information=["Invoice has not been uploaded."]),
+            attachment_ids=[],
+            missing_information=["Attach the invoice if available."],
+        )
+    )
+    state = make_state("file_claim")
+    state.update(run(file_claim, state, context))
+    context.reviewer.outputs.append(ReviewVerdict(outcome="pass"))
+    state.update(run(reviewer, state, context))
+    assert state["phase"] == "human_review" and state["estimate"].covered_amount == 150
+    assert state["estimate"].estimated_payment == 0
+    assert context.reviewer.calls[0]["payload"]["calculated_estimate"]["deductible"] == "1000.00"
+
+
+def test_packet_cannot_treat_a_zero_payment_as_zero_eligible_expense():
+    context = make_context()
+    context.generator.outputs.append(
+        packet_draft(context, coverage=coverage_draft(covered_amount="0"))
+    )
+    state = make_state("file_claim")
+    state.update(run(file_claim, state, context))
+    state.update(run(reviewer, state, context))
+    assert state["phase"] == "revision_required"
+    assert any(issue.check == "gross_expense" for issue in state["review"].verdict.issues)
 
 
 def test_packet_rejects_fabricated_attachment():

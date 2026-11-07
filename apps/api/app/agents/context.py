@@ -78,3 +78,4 @@ class AgentContext:
     evidence_cache: EvidenceCache = field(default_factory=EvidenceCache)
     actions: ApprovedActions | None = None
     web_search: WebSearch | None = None
+    prior_coverage: dict[str, Any] | None = None

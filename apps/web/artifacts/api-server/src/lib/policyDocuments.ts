@@ -22,7 +22,11 @@ export async function readPolicyPdf(file: File, expectedSize: number): Promise<B
     chunks.push(bytes);
   }
   const buffer = Buffer.concat(chunks);
-  if (buffer.length !== expectedSize ||
+  return validatePdfBytes(buffer, expectedSize);
+}
+
+export function validatePdfBytes(buffer: Buffer, expectedSize: number): Buffer {
+  if (expectedSize > MAX_POLICY_BYTES || buffer.length !== expectedSize ||
       !/^%PDF-(1\.[0-7]|2\.0)/.test(buffer.subarray(0, 10).toString("ascii")) ||
       !buffer.subarray(-2048).includes(Buffer.from("%%EOF"))) {
     throw new InvalidPolicyDocument("This file is not a complete PDF. Please choose a valid PDF document.");

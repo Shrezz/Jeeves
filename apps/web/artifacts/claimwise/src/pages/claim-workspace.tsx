@@ -1,3 +1,4 @@
+import { GUIDANCE_LEASE_MS, claimStatusLabel, MANUAL_CLAIM_STATUS_VALUES } from "@workspace/domain";
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'wouter';
@@ -5,18 +6,14 @@ import {
   ClaimStatus, getGetClaimQueryKey, getListClaimsQueryKey,
   useCompleteClaimEvidence, useGetClaim, useInitiateClaimEvidence, useRequestClaimGuidance, useSaveClaimMessage,
 } from '@workspace/api-client-react';
-import type { ClaimMessage, ClaimStatus as ClaimStatusType } from '@workspace/api-client-react';
+import type { ClaimMessage, ManualClaimStatus as ClaimStatusType } from '@workspace/api-client-react';
 import {
   ArrowLeft, Check, Paperclip, RefreshCw, Send, ShieldCheck,
 } from 'lucide-react';
 import { ClaimConversation } from './claim-conversation';
 import { ClaimSidebar } from './claim-sidebar';
 
-const statuses = [
-  ClaimStatus.Draft, ClaimStatus.Gathering_evidence, ClaimStatus.Preparation_requested,
-  ClaimStatus.Package_prepared, ClaimStatus.Filed_by_me_with_insurer,
-  ClaimStatus.Insurer_decision_received, ClaimStatus.Resolved_without_filing,
-];
+const statuses = MANUAL_CLAIM_STATUS_VALUES;
 type Composer = { message: string; expense: string; attachments: string[]; statusComment?: string; nextStatus?: ClaimStatusType; statusForm?: boolean };
 const composerByClaim = new Map<string, Composer>();
 const messageIds = new Map<string, { signature: string; id: string }>();
@@ -64,7 +61,7 @@ export function ClaimWorkspacePage({ claimId, embedded = false }: { claimId: str
   const [preparing, setPreparing] = useState(false);
   const [prepareConfirmed, setPrepareConfirmed] = useState(false);
   const [statusForm, setStatusForm] = useState(initial.statusForm ?? false);
-  const [nextStatus, setNextStatus] = useState<ClaimStatusType>(initial.nextStatus ?? ClaimStatus.Gathering_evidence);
+  const [nextStatus, setNextStatus] = useState<ClaimStatusType>(initial.nextStatus ?? ClaimStatus.gathering_evidence);
   const [statusComment, setStatusComment] = useState(initial.statusComment ?? '');
   const [busy, setBusy] = useState(false);
   const [receipt, setReceipt] = useState('');
@@ -92,7 +89,7 @@ export function ClaimWorkspacePage({ claimId, embedded = false }: { claimId: str
   useEffect(() => {
     const value = composerByClaim.get(`${currentOwner ?? 'signed-out'}:${claimId}`) ?? { message: '', expense: '', attachments: [] };
     setMessage(value.message); setExpense(value.expense); setAttachments(value.attachments);
-    setStatusComment(value.statusComment ?? ''); setNextStatus(value.nextStatus ?? ClaimStatus.Gathering_evidence);
+    setStatusComment(value.statusComment ?? ''); setNextStatus(value.nextStatus ?? ClaimStatus.gathering_evidence);
     setSaveError(''); setUploadError(''); setPreparing(false); setPrepareConfirmed(false); setStatusForm(value.statusForm ?? false);
   }, [claimId]);
   const pendingGuidance = workspace?.guidance.filter((item) => item.state === 'pending')
@@ -100,7 +97,7 @@ export function ClaimWorkspacePage({ claimId, embedded = false }: { claimId: str
   useEffect(() => {
     if (!pendingGuidance) return;
     const timer = window.setInterval(() => {
-      if (Date.now() - new Date(pendingGuidance.updatedAt).getTime() > 120_000) {
+      if (Date.now() - new Date(pendingGuidance.updatedAt).getTime() > GUIDANCE_LEASE_MS) {
         setNow(Date.now());
         window.clearInterval(timer);
         return;
@@ -208,7 +205,7 @@ export function ClaimWorkspacePage({ claimId, embedded = false }: { claimId: str
   const send = async (kind: 'ask' | 'preparation_request' | 'status_update', content: string, status?: ClaimStatusType, withConfirmation = false) => {
     if (busyRef.current || uploadBusyRef.current || !workspace) return;
     if (withConfirmation && !prepareConfirmed) return;
-    if (guidanceRequestRef.current || guidanceBusyId || workspace.guidance.some((item) => item.state === 'pending' && now - new Date(item.updatedAt).getTime() < 120_000)) {
+    if (guidanceRequestRef.current || guidanceBusyId || workspace.guidance.some((item) => item.state === 'pending' && now - new Date(item.updatedAt).getTime() < GUIDANCE_LEASE_MS)) {
       setSaveError('Please wait for the current guidance response before sending another update.');
       return;
     }
@@ -261,12 +258,12 @@ export function ClaimWorkspacePage({ claimId, embedded = false }: { claimId: str
     if (mounted.current && claimIdRef.current === sentTo) {
       if (kind === 'status_update') { setStatusForm(false); setStatusComment(''); }
       else { setMessage(''); setExpense(''); setAttachments([]); setPreparing(false); setPrepareConfirmed(false); }
-      setReceipt(kind === 'status_update' ? 'Status update saved.' : kind === 'preparation_request' ? 'Preparation request saved for future processing. No package has been generated.' : 'Your message is saved. Requesting guidance…');
+      setReceipt(kind === 'status_update' ? 'Status update saved.' : kind === 'preparation_request' ? 'Preparation request saved.' : 'Your message is saved. Requesting guidance…');
     }
     void queryClient.invalidateQueries({ queryKey: getGetClaimQueryKey(sentTo) });
     void queryClient.invalidateQueries({ queryKey: getListClaimsQueryKey() });
     busyRef.current = false; setBusy(false);
-    if (kind === 'ask') void requestGuidanceFor(savedMessage.id);
+    if (kind === 'ask' || (kind === 'preparation_request' && import.meta.env.VITE_LOCAL_POLICY_SEARCH)) void requestGuidanceFor(savedMessage.id);
   };
 
   if (isLoading) return embedded
@@ -275,7 +272,7 @@ export function ClaimWorkspacePage({ claimId, embedded = false }: { claimId: str
   if (isError || !workspace) return <main className="mx-auto max-w-4xl px-5 py-10"><section role="alert" className="rounded-3xl border border-card-border bg-card p-7"><h1 className="font-display text-3xl">Claim workspace unavailable</h1><p className="mt-2 text-sm text-muted-foreground">We couldn’t load this claim. It may not exist or may no longer be available.</p><div className="mt-5 flex gap-2"><button type="button" className={actionClass()} onClick={() => void refetch()}><RefreshCw className="h-4 w-4" aria-hidden /> Try again</button><Link href="/workspace/claim" className={actionClass()}>Choose another claim</Link></div></section></main>;
 
   const { claim, policy, messages, evidence, guidance } = workspace;
-  const guidancePendingLive = guidance.some((item) => item.state === 'pending' && now - new Date(item.updatedAt).getTime() < 120_000);
+  const guidancePendingLive = guidance.some((item) => item.state === 'pending' && now - new Date(item.updatedAt).getTime() < GUIDANCE_LEASE_MS);
   const guidanceGate = guidancePendingLive || guidanceBusyId !== null;
   const Container = embedded ? 'div' : 'main';
   return (
@@ -283,7 +280,7 @@ export function ClaimWorkspacePage({ claimId, embedded = false }: { claimId: str
       {!embedded && <header className="flex flex-wrap items-center justify-between gap-3 border-b border-card-border bg-card/70 px-5 py-4 sm:px-8">
         <div className="flex min-w-0 items-center gap-3">
           <Link href="/workspace/claim" aria-label="Choose a different claim" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg hover:bg-secondary"><ArrowLeft className="h-4 w-4" aria-hidden /></Link>
-          <div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">File Your Claim · {claim.status}</p><h1 className="truncate font-display text-2xl" data-testid="text-claim-title">{claim.title}</h1></div>
+          <div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">File Your Claim · {claimStatusLabel(claim.status)}</p><h1 className="truncate font-display text-2xl" data-testid="text-claim-title">{claim.title}</h1></div>
         </div>
         <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-secondary px-3 py-1.5 text-xs font-semibold text-secondary-foreground"><ShieldCheck className="h-3.5 w-3.5" aria-hidden /> Private workspace</span>
       </header>}
@@ -291,7 +288,7 @@ export function ClaimWorkspacePage({ claimId, embedded = false }: { claimId: str
         <section aria-label="Conversation" className="flex min-h-[610px] flex-col overflow-hidden rounded-2xl border border-card-border bg-card">
           <div className="border-b border-card-border px-5 py-4">
             <div className="flex items-center justify-between gap-3"><div><h2 className="font-semibold">{embedded ? 'Chat with Jeev' : 'Claim conversation'}</h2><p className="text-xs text-muted-foreground">{embedded ? claim.title : 'A private record of your notes and evidence.'}</p></div><span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">{messages.length} {messages.length === 1 ? 'entry' : 'entries'}</span></div>
-            <p className="mt-3 rounded-lg border border-primary/15 bg-secondary/60 px-3 py-2 text-xs leading-5 text-muted-foreground">AI guidance can be incomplete—review it for accuracy. It is not legal advice or an insurer’s coverage decision. Guidance uses your conversation and evidence details, not the contents of photos, videos, or PDFs.</p>
+            <p className="mt-3 rounded-lg border border-primary/15 bg-secondary/60 px-3 py-2 text-xs leading-5 text-muted-foreground">AI guidance can be incomplete—review it for accuracy. It is not legal advice or an insurer’s coverage decision. {import.meta.env.VITE_LOCAL_POLICY_SEARCH ? 'Answers can cite the indexed policy linked to this claim. Other attachments are used by name only.' : 'Guidance uses your conversation and attachment details only.'}</p>
           </div>
           <ClaimConversation messages={messages} guidance={guidance} evidence={evidence} activeGuidanceId={guidanceBusyId} guidanceErrors={guidanceErrors} now={now} onRequestGuidance={(messageId) => void requestGuidanceFor(messageId)} />
           <form className="space-y-3 border-t border-card-border bg-background/70 p-4 sm:p-5" onSubmit={(event) => { event.preventDefault(); void send('ask', message); }}>
@@ -312,10 +309,10 @@ export function ClaimWorkspacePage({ claimId, embedded = false }: { claimId: str
             {saveError && <p role="alert" className="rounded-lg border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm text-destructive">{saveError}</p>}
             </fieldset>
             <p role="status" aria-live="polite" className="text-sm font-medium text-primary">{receipt || (busy ? 'Saving your entry…' : '')}</p>
-            <p className="text-xs leading-5 text-muted-foreground">Ask saves your message and recorded expense, then requests AI guidance. Claimwise does not create a claim package or submit anything to your insurer. Photos, videos, and PDFs are saved as evidence; their contents are not analyzed.</p>
+            <p className="text-xs leading-5 text-muted-foreground">Ask saves your message and recorded expense, then requests AI guidance. {import.meta.env.VITE_LOCAL_POLICY_SEARCH ? 'Ask to prepare a claim when you want a packet for review. Nothing is submitted to an insurer.' : 'Nothing is submitted to your insurer.'} Claim attachments are saved as evidence; their contents are not analyzed.</p>
           </form>
-          {preparing && <div className="border-t border-primary/20 bg-secondary/50 p-4 sm:px-5"><p className="font-semibold">Request claim preparation?</p><p className="mt-1 text-sm leading-5 text-muted-foreground">This saves a request for future processing. No package will be generated and nothing will be sent to your insurer.</p><label className="mt-3 flex items-start gap-2 text-sm"><input type="checkbox" checked={prepareConfirmed} onChange={(event) => setPrepareConfirmed(event.target.checked)} className="mt-1 accent-[hsl(178_64%_27%)]" /><span>I understand this records a request only; it does not create or file a claim package.</span></label><div className="mt-3 flex flex-wrap gap-2"><button type="button" className={actionClass('primary')} disabled={!prepareConfirmed || busy} onClick={() => void send('preparation_request', message, undefined, true)}><Check className="h-4 w-4" aria-hidden /> Confirm request</button><button type="button" className={actionClass()} onClick={() => { setPreparing(false); setPrepareConfirmed(false); }}>Cancel</button></div></div>}
-          {statusForm && <form className="border-t border-primary/20 bg-secondary/50 p-4 sm:px-5" onSubmit={(event) => { event.preventDefault(); void send('status_update', statusComment, nextStatus); }}><h3 className="font-semibold">Record a status update</h3><label htmlFor="claim-status" className="mb-1.5 mt-3 block text-sm font-semibold">Status</label><select id="claim-status" value={nextStatus} onChange={(event) => updateNextStatus(event.target.value as ClaimStatusType)} className="min-h-10 w-full rounded-lg border border-input bg-card px-3 text-sm">{statuses.map((status) => <option key={status} value={status}>{status}</option>)}</select><label htmlFor="status-comment" className="mb-1.5 mt-3 block text-sm font-semibold">Comment <span className="font-normal text-muted-foreground">(optional)</span></label><textarea id="status-comment" rows={2} maxLength={12000} value={statusComment} onChange={(event) => updateStatusComment(event.target.value)} placeholder="Add a note about this update" className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm" /><p className="mt-2 text-xs leading-5 text-muted-foreground">This records the status you select; it is not an insurer coverage decision.</p><div className="mt-3 flex gap-2"><button type="submit" className={actionClass('primary')} disabled={busy}><Check className="h-4 w-4" aria-hidden /> Save status</button><button type="button" className={actionClass()} onClick={() => updateStatusForm(false)}>Cancel</button></div></form>}
+          {preparing && <div className="border-t border-primary/20 bg-secondary/50 p-4 sm:px-5"><p className="font-semibold">Request claim preparation?</p><p className="mt-1 text-sm leading-5 text-muted-foreground">{import.meta.env.VITE_LOCAL_POLICY_SEARCH ? 'Prepare a draft from your saved incident and policy evidence for human review.' : 'This saves a request for future processing.'} Nothing will be sent to your insurer.</p><label className="mt-3 flex items-start gap-2 text-sm"><input type="checkbox" checked={prepareConfirmed} onChange={(event) => setPrepareConfirmed(event.target.checked)} className="mt-1 accent-[hsl(178_64%_27%)]" /><span>I understand this request does not file a claim with my insurer.</span></label><div className="mt-3 flex flex-wrap gap-2"><button type="button" className={actionClass('primary')} disabled={!prepareConfirmed || busy} onClick={() => void send('preparation_request', message, undefined, true)}><Check className="h-4 w-4" aria-hidden /> Confirm request</button><button type="button" className={actionClass()} onClick={() => { setPreparing(false); setPrepareConfirmed(false); }}>Cancel</button></div></div>}
+          {statusForm && <form className="border-t border-primary/20 bg-secondary/50 p-4 sm:px-5" onSubmit={(event) => { event.preventDefault(); void send('status_update', statusComment, nextStatus); }}><h3 className="font-semibold">Record a status update</h3><label htmlFor="claim-status" className="mb-1.5 mt-3 block text-sm font-semibold">Status</label><select id="claim-status" value={nextStatus} onChange={(event) => updateNextStatus(event.target.value as ClaimStatusType)} className="min-h-10 w-full rounded-lg border border-input bg-card px-3 text-sm">{statuses.map((status) => <option key={status} value={status}>{claimStatusLabel(status)}</option>)}</select><label htmlFor="status-comment" className="mb-1.5 mt-3 block text-sm font-semibold">Comment <span className="font-normal text-muted-foreground">(optional)</span></label><textarea id="status-comment" rows={2} maxLength={12000} value={statusComment} onChange={(event) => updateStatusComment(event.target.value)} placeholder="Add a note about this update" className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm" /><p className="mt-2 text-xs leading-5 text-muted-foreground">This records the status you select; it is not an insurer coverage decision.</p><div className="mt-3 flex gap-2"><button type="submit" className={actionClass('primary')} disabled={busy}><Check className="h-4 w-4" aria-hidden /> Save status</button><button type="button" className={actionClass()} onClick={() => updateStatusForm(false)}>Cancel</button></div></form>}
         </section>
         {embedded ? (
           <details className="rounded-xl border border-card-border bg-card p-4">
