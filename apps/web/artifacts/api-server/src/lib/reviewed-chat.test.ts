@@ -11,4 +11,5 @@ test("claim worker only receives explicitly allowed tracing configuration", () =
   assert.equal(result.LANGFUSE_CAPTURE_SYNTHETIC_CONTENT, undefined);
   assert.equal(result.UNRELATED_SECRET, undefined);
   assert.equal(claimWorkerEnv({}, "ollama").LANGFUSE_TRACING_ENABLED, undefined);
+  assert.equal(claimWorkerEnv({ LANGFUSE_TRACING_ENABLED: "false", LANGFUSE_SECRET_KEY: "secret" }, "ollama").LANGFUSE_SECRET_KEY, undefined);
 });

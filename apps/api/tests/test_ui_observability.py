@@ -1,9 +1,12 @@
 """Integrated worker tracing exports metadata without request content."""
 
 import asyncio
+import io
+import json
 from contextlib import contextmanager
 
 import httpx
+import pytest
 
 from app.schemas.agents import RouteDecision
 from app.services.chat_worker import OllamaModel
@@ -121,3 +124,39 @@ def test_ollama_usage_sums_provider_counts_across_retries(monkeypatch):
     assert {
         "usage_details": {"prompt_tokens": 30, "completion_tokens": 9, "total_tokens": 39}
     } in updates
+
+
+def test_ui_worker_flushes_trace_when_database_setup_fails(monkeypatch):
+    from app.services import ui_workflow
+
+    events = []
+
+    @contextmanager
+    def session(session_id):
+        events.append(("session", session_id))
+        yield
+
+    @contextmanager
+    def observation(name, **kwargs):
+        events.append(("observation", name))
+        yield None
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("database not reachable")
+
+    monkeypatch.setenv("DATABASE_URL", "postgresql://localhost/synthetic")
+    monkeypatch.setattr(ui_workflow.sys, "argv", ["worker"])
+    monkeypatch.setattr(
+        ui_workflow.sys, "stdin", io.StringIO(json.dumps({"runId": "synthetic-run"}))
+    )
+    monkeypatch.setattr(ui_workflow, "trace_session", session)
+    monkeypatch.setattr(ui_workflow, "observation", observation)
+    monkeypatch.setattr(ui_workflow, "flush_traces", lambda: events.append(("flush",)))
+    monkeypatch.setattr(ui_workflow.AsyncPostgresSaver, "from_conn_string", fail)
+    with pytest.raises(RuntimeError, match="not reachable"):
+        asyncio.run(ui_workflow.main())
+    assert events == [
+        ("session", "synthetic-run"),
+        ("observation", "ui-claim-workflow"),
+        ("flush",),
+    ]

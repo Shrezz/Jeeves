@@ -34,6 +34,8 @@ def main():
 
 
 def perform(request, owner, policy, directory):
+    if request.get("operation") not in {"index", "search"}:
+        raise ValueError("Unknown operation")
     with (
         FileLock(directory / "worker.lock", timeout=45),
         redirect_stdout(sys.stderr),

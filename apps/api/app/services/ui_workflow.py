@@ -247,31 +247,36 @@ async def execute(db, saver, request, generator, reviewer):
 async def main():
     url = os.environ["DATABASE_URL"]
     graph_url = make_conninfo(url, options="-c search_path=claim_graph")
-    async with AsyncPostgresSaver.from_conn_string(
-        graph_url, serde=checkpoint_serializer()
-    ) as saver:
-        if sys.argv[1:] == ["--setup"]:
+    if sys.argv[1:] == ["--setup"]:
+        async with AsyncPostgresSaver.from_conn_string(
+            graph_url, serde=checkpoint_serializer()
+        ) as saver:
             await saver.setup()
-            return
-        request = json.load(sys.stdin)
-        async with (
-            await AsyncConnection.connect(url, autocommit=True, row_factory=dict_row) as db,
-            chat_models() as (generator, reviewer),
+        return
+    request = json.load(sys.stdin)
+    try:
+        with (
+            trace_session(request["runId"]),
+            observation(
+                "ui-claim-workflow",
+                metadata={"provider": os.environ.get("CLAIM_CHAT_PROVIDER", "ollama")},
+            ) as span,
         ):
-            try:
-                with (
-                    trace_session(request["runId"]),
-                    observation(
-                        "ui-claim-workflow",
-                        metadata={"provider": os.environ.get("CLAIM_CHAT_PROVIDER", "ollama")},
-                    ),
-                ):
+            async with (
+                AsyncPostgresSaver.from_conn_string(
+                    graph_url, serde=checkpoint_serializer()
+                ) as saver,
+                await AsyncConnection.connect(url, autocommit=True, row_factory=dict_row) as db,
+                chat_models() as (generator, reviewer),
+            ):
+                try:
                     await execute(db, saver, request, generator, reviewer)
-                print(json.dumps({"ok": True}))
-            except ClaimChanged as e:
-                print(json.dumps({"conflict": str(e)}))
-            finally:
-                flush_traces()
+                    print(json.dumps({"ok": True}))
+                except ClaimChanged as e:
+                    span.update(output={"conflict": True})
+                    print(json.dumps({"conflict": str(e)}))
+    finally:
+        flush_traces()
 
 
 if __name__ == "__main__":

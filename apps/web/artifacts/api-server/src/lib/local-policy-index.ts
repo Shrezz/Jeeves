@@ -17,10 +17,12 @@ function worker(request: object): Promise<unknown> {
     const child = execFile(python, ["-m", "policy_rag.local_worker"], {
       cwd: root, timeout: 180_000, killSignal: "SIGKILL", maxBuffer: 2 * 1024 * 1024,
       env: { PATH: process.env.PATH, HOME: process.env.HOME, LOCAL_RAG_DATA_DIR: process.env.LOCAL_RAG_DATA_DIR,
-        LANGFUSE_TRACING_ENABLED: process.env.LANGFUSE_TRACING_ENABLED,
-        LANGFUSE_PUBLIC_KEY: process.env.LANGFUSE_PUBLIC_KEY,
-        LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY,
-        LANGFUSE_BASE_URL: process.env.LANGFUSE_BASE_URL,
+        ...(process.env.LANGFUSE_TRACING_ENABLED?.toLowerCase() === "true" ? {
+          LANGFUSE_TRACING_ENABLED: process.env.LANGFUSE_TRACING_ENABLED,
+          LANGFUSE_PUBLIC_KEY: process.env.LANGFUSE_PUBLIC_KEY,
+          LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY,
+          LANGFUSE_BASE_URL: process.env.LANGFUSE_BASE_URL,
+        } : {}),
         POLICY_RAG_TRACE: "0", ANONYMIZED_TELEMETRY: "False", TOKENIZERS_PARALLELISM: "false" },
     }, (error, stdout) => {
       if (error) { reject(new Error("Local policy worker failed")); return; }

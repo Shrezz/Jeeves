@@ -39,18 +39,21 @@ RAG/.venv/bin/python evals/rag_suite.py --dataset evals/datasets/rag_held_out.js
 ```
 
 The suite uses the actual PDF parser, chunker, MiniLM embeddings and a disposable
-Chroma index; it never reads the application's policy database. Seven development
-queries and three held-out queries check whether an expected phrase occurs on the
-expected page among returned passages. Reports include rank, recall at the returned
+Chroma index; it never reads the application's policy database. Fifteen development
+scenarios include thirteen expected-passage queries and two unsupported-topic checks;
+three held-out queries check expected passages. Reports include rank, recall at the returned
 result count, mean reciprocal rank, page checks, timing and errors. It checks
 indexing repeatability, embedding dimensions/finite values/repeatability, three
 synthetic relative-similarity probes, and owner/policy isolation. These synthetic
-labels need team review; neither exact phrase matching nor these similarity probes
-establishes semantic answer faithfulness. Unsupported-answer abstention and human
-review remain explicitly unscored. Held-out queries should not be used for tuning.
+labels need team review. Citation checks verify that the cited words appear in order
+on the cited source page, allowing for omitted PDF decorations. This does not prove
+semantic faithfulness. Unsupported-topic checks measure only source and retrieval
+content; the generated answer's abstention and human review remain unscored. Held-out
+queries should not be used for tuning.
 
 Add `--langfuse --run-name NAME` with Langfuse environment variables set to export
-the fictional query and component-check scores. `--strict` gates measured failures
+the fictional query and component-check scores. Langfuse export is restricted to the
+two supplied dataset paths; keep those files fictional. `--strict` gates measured failures
 and execution errors, not the explicitly unscored human-review criteria. The first
 run downloads MiniLM to the temporary evaluation directory. Search-only scores do
 not evaluate a generated response or the signed-in UI end to end.

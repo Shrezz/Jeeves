@@ -135,6 +135,16 @@ class WebClaimStore:
 
         carrier: dict[str, str] = {}
         inject(carrier)
+        tracing_keys = (
+            (
+                "LANGFUSE_TRACING_ENABLED",
+                "LANGFUSE_PUBLIC_KEY",
+                "LANGFUSE_SECRET_KEY",
+                "LANGFUSE_BASE_URL",
+            )
+            if os.getenv("LANGFUSE_TRACING_ENABLED", "").lower() == "true"
+            else ()
+        )
         proc = await asyncio.create_subprocess_exec(
             str(python),
             "-m",
@@ -145,15 +155,7 @@ class WebClaimStore:
             stderr=asyncio.subprocess.DEVNULL,
             env={
                 k: os.environ[k]
-                for k in (
-                    "PATH",
-                    "HOME",
-                    "LOCAL_RAG_DATA_DIR",
-                    "LANGFUSE_TRACING_ENABLED",
-                    "LANGFUSE_PUBLIC_KEY",
-                    "LANGFUSE_SECRET_KEY",
-                    "LANGFUSE_BASE_URL",
-                )
+                for k in ("PATH", "HOME", "LOCAL_RAG_DATA_DIR", *tracing_keys)
                 if k in os.environ
             }
             | {

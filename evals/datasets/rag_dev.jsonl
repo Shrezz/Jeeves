@@ -5,3 +5,11 @@
 {"id":"rag_policy_number","question":"What is the policy number shown in the declarations?","page":1,"expected_text":"CCV-HO3-CA-100731"}
 {"id":"rag_receipt","question":"What proof should I keep for window boarding?","page":2,"expected_text":"receipt"}
 {"id":"rag_term","question":"When does this policy period end?","page":1,"expected_text":"December 31, 2026"}
+{"id":"rag_preexisting_window","question":"Is damage to a window already broken before the storm excluded?","page":2,"expected_text":"already broken before the storm"}
+{"id":"rag_boarding_purpose","question":"Why does the policy allow temporary boards after a broken window?","page":2,"expected_text":"keep rain out"}
+{"id":"rag_wind_deductible","question":"Does the deductible apply to covered windborne debris repairs?","page":2,"expected_text":"covered repairs"}
+{"id":"rag_exterior_scope","question":"Does the windborne debris clause concern an exterior dwelling window?","page":2,"expected_text":"exterior dwelling window"}
+{"id":"rag_synthetic_scope","question":"Is this sample policy an actual issued insurance policy?","page":1,"expected_text":"does not provide insurance"}
+{"id":"rag_boarding_per_occurrence","question":"Is the temporary boarding allowance calculated per occurrence?","page":2,"expected_text":"per occurrence"}
+{"id":"rag_absent_earthquake","question":"Where is earthquake coverage specified?","expected_absent":"earthquake"}
+{"id":"rag_absent_jewelry","question":"Where is jewelry theft coverage specified?","expected_absent":"jewelry"}

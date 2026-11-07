@@ -5,8 +5,9 @@ import { ClaimRequestError } from "./claim-errors";
 
 export function claimWorkerEnv(source: NodeJS.ProcessEnv, mode: string): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { CLAIM_CHAT_PROVIDER: mode };
+  const tracing = source.LANGFUSE_TRACING_ENABLED?.toLowerCase() === "true";
   for (const key of ["PATH", "HOME", "DATABASE_URL", "LOCAL_RAG_ROOT", "LOCAL_RAG_DATA_DIR",
-    "LANGFUSE_TRACING_ENABLED", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_BASE_URL",
+    ...(tracing ? ["LANGFUSE_TRACING_ENABLED", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_BASE_URL"] : []),
     ...(mode === "nebius" ? ["NEBIUS_API_KEY", "NEBIUS_GENERATOR_MODEL", "NEBIUS_REVIEWER_MODEL"] : ["OLLAMA_MODEL"])]) {
     if (source[key]) env[key] = source[key];
   }
