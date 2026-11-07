@@ -49,7 +49,7 @@ export function ReviewActions({ review, ready, onReload }: {
       void client.invalidateQueries({ queryKey: getGetClaimQueryKey(claimId) });
       if (mounted.current) {
         setDraft(null);
-        setNotice(submission ? 'Submitted in Claimwise. Nothing was sent to your insurer.' : 'Your comments are saved.');
+        setNotice(submission ? 'Submitted in Jeeves. Nothing was sent to your insurer.' : 'Your comments are saved.');
       }
     } catch (err) {
       if (mounted.current) setError(errorText(err));
@@ -70,12 +70,12 @@ export function ReviewActions({ review, ready, onReload }: {
         {!submitted && <Btn variant="outline" className="mt-3" data-testid="button-save-review-comments" disabled={disabled} onClick={() => void persist(false)}>Save comments</Btn>}
       </Panel>
       {submitted ? (
-        <Notice tone="ok" title="Submitted in Claimwise">
-          Saved {new Date(review!.submittedAt!).toLocaleString()}. This is a record of your submission within Claimwise, not an insurer filing.
+        <Notice tone="ok" title="Submitted in Jeeves">
+          Saved {new Date(review!.submittedAt!).toLocaleString()}. This is a record of your submission within Jeeves, not an insurer filing.
         </Notice>
       ) : (
-        <Notice tone="info" title="Submit within Claimwise">
-          Submit saves the reviewed information and your comments in Claimwise. It does not send anything to your insurer or confirm coverage.
+        <Notice tone="info" title="Submit within Jeeves">
+          Submit saves the reviewed information and your comments in Jeeves. It does not send anything to your insurer or confirm coverage.
         </Notice>
       )}
       {error && <div role="alert" className="rounded-xl border border-destructive/25 bg-destructive/5 p-4 text-sm"><p>{error}</p><Btn variant="outline" className="mt-2" disabled={busy} onClick={onReload}>Reload review</Btn></div>}

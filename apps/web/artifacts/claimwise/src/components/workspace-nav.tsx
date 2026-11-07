@@ -1,5 +1,5 @@
 import { Link } from 'wouter';
-import { ClipboardList, LayoutDashboard, MessageSquareText, UserRound, ClipboardPlus } from 'lucide-react';
+import { ClipboardList, LayoutDashboard, UserRound, ClipboardPlus } from 'lucide-react';
 import { Mark } from '@/components/cw';
 
 const destinations = [
@@ -7,7 +7,6 @@ const destinations = [
   { href: '/workspace/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { href: '/workspace/claim', label: 'Prepare Your Claim', Icon: ClipboardPlus },
   { href: '/workspace/review', label: 'Review Claim', Icon: ClipboardList },
-  { href: '/workspace/status', label: 'Status Update', Icon: MessageSquareText },
 ] as const;
 
 export function WorkspaceNav({ path }: { path: string }) {
@@ -45,7 +44,7 @@ export function WorkspaceBrand() {
   return (
     <Link href="/workspace/dashboard" className="inline-flex shrink-0 items-center gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" data-testid="link-workspace-home">
       <Mark className="h-7 w-7" />
-      <span className="text-base font-bold tracking-tight">Claimwise</span>
+      <span className="text-base font-bold tracking-tight">Jeeves</span>
     </Link>
   );
 }

@@ -8,6 +8,8 @@
 
 export interface JeevMessageInput {
   messageId: string;
+  /** @nullable */
+  policyId?: string | null;
   /**
      * @minLength 1
      * @maxLength 12000

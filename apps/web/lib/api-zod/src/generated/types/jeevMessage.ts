@@ -6,10 +6,16 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { JeevMessageReplyState } from './jeevMessageReplyState';
+import type { JeevMessageRoute } from './jeevMessageRoute';
+import type { PolicyPassage } from './policyPassage';
 
 export interface JeevMessage {
   id: string;
   content: string;
+  /** @nullable */
+  policyId: string | null;
+  route?: JeevMessageRoute;
+  sources: PolicyPassage[];
   /** @nullable */
   reply: string | null;
   replyState: JeevMessageReplyState;

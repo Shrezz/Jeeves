@@ -56,7 +56,7 @@ def test_owned_packet_survives_restart_and_only_exact_human_approval_prepares_it
             ),
         ]
     )
-    reviewer.outputs.append(ReviewVerdict(outcome="pass"))
+    reviewer.outputs.extend([{"unsupported": []}, ReviewVerdict(outcome="pass")])
 
     with database_factory() as url:
         migrate(url, directory=MIGRATIONS)
@@ -71,7 +71,7 @@ def test_owned_packet_survives_restart_and_only_exact_human_approval_prepares_it
                 (claim, owner, policy),
             )
             db.execute(
-                "INSERT INTO claim_messages(id,claim_id,content,kind,processing_status) VALUES (%s,%s,'lets file the claim','ask','saved_for_processing')",
+                "INSERT INTO claim_messages(id,claim_id,content,kind,processing_status) VALUES (%s,%s,'Baseball impact broke the window on November 1, 2026. I paid $150. Lets file the claim.','ask','saved_for_processing')",
                 (message, claim),
             )
             db.execute(
@@ -182,7 +182,9 @@ def test_clarified_ui_packet_preserves_pending_and_shows_only_conditional_illust
     generator = ScriptedModel(outputs=[draft, draft])
     reviewer = ScriptedModel(
         outputs=[
+            {"unsupported": []},
             ReviewVerdict(outcome="needs_information", questions=["Is the repair pending?"]),
+            {"unsupported": []},
             ReviewVerdict(outcome="pass"),
         ]
     )
@@ -199,7 +201,7 @@ def test_clarified_ui_packet_preserves_pending_and_shows_only_conditional_illust
                 (claim, owner, policy),
             )
             db.execute(
-                "INSERT INTO claim_messages(id,claim_id,content,expense,kind,processing_status) VALUES (%s,%s,'Prepare my windborne window claim.',650,'preparation_request','saved_for_processing')",
+                "INSERT INTO claim_messages(id,claim_id,content,expense,kind,processing_status) VALUES (%s,%s,'Prepare my claim. Windborne debris broke my window on November 3, 2026; the repair estimate is $650.',650,'preparation_request','saved_for_processing')",
                 (message, claim),
             )
             db.execute(

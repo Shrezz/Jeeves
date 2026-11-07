@@ -11,7 +11,7 @@ export default function AccountPage() {
   const { user } = useUser();
 
   useEffect(() => {
-    document.title = 'Your Account — Claimwise';
+    document.title = 'Your Account — Jeeves';
   }, []);
 
   const name = user?.fullName || [user?.firstName, user?.lastName].filter(Boolean).join(' ') || '';
@@ -22,7 +22,7 @@ export default function AccountPage() {
       <header className="max-w-2xl">
         <p className="text-sm font-semibold uppercase tracking-[0.14em] text-primary">Your private workspace</p>
         <h1 className="mt-3 font-display text-4xl sm:text-5xl">Your Account</h1>
-        <p className="mt-3 leading-7 text-muted-foreground">A read-only summary of the account currently signed in to Claimwise.</p>
+        <p className="mt-3 leading-7 text-muted-foreground">A read-only summary of the account currently signed in to Jeeves.</p>
       </header>
       <section aria-labelledby="account-summary-heading" className="max-w-3xl overflow-hidden rounded-3xl border border-card-border bg-card shadow-[0_16px_50px_-38px_hsl(192_30%_12%/.28)]">
         <div className="flex items-center gap-4 border-b border-border bg-[hsl(176_30%_94%)] p-5 sm:p-7">

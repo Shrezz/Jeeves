@@ -44,7 +44,7 @@ def test_expected_graph_interrupt_is_not_recorded_as_error(monkeypatch):
     monkeypatch.setattr(tracing, "get_trace_client", lambda: fake)
     with pytest.raises(GraphInterrupt), tracing.observation("agent-human_review"):
         raise GraphInterrupt()
-    assert fake.events[0]["updates"] == [{"output": {"interrupted": True}}]
+    assert fake.events[0]["updates"] == [{"output": {"interrupted": True, "awaiting_user": True}}]
 
 
 def test_agent_graph_traces_nodes_and_human_approval_without_raw_content(monkeypatch):
@@ -284,3 +284,17 @@ def test_real_sdk_exports_parented_spans_and_session_without_network(monkeypatch
         assert "test-token" not in repr([dict(span.attributes) for span in spans])
     finally:
         client.shutdown()
+
+
+def test_human_interrupt_is_a_normal_pause_and_excludes_its_payload(monkeypatch):
+    from langgraph.errors import GraphInterrupt
+    from langgraph.types import Interrupt
+    import pytest
+
+    fake = FakeClient()
+    monkeypatch.setattr(tracing, "get_trace_client", lambda: fake)
+    with pytest.raises(GraphInterrupt):
+        with tracing.observation("agent-human_review"):
+            raise GraphInterrupt((Interrupt(value={"draft": "private packet content"}),))
+    assert fake.events[0]["updates"] == [{"output": {"interrupted": True, "awaiting_user": True}}]
+    assert "private packet content" not in repr(fake.events)

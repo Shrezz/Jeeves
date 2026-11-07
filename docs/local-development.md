@@ -1,11 +1,11 @@
 # Local UI, Clerk and PostgreSQL
 
-This setup runs the existing Claimwise React UI and Express API with real Clerk
+This setup runs the existing Jeeves React UI and Express API with real Clerk
 development sessions and a dedicated local database using the shared UI schema.
 Local policy uploads use the RAG parser, chunker and vector search. Local claim chat uses the LangGraph router, the linked policy index and a persistent human review step.
 
-The combined dashboard and shared-identity workflow require UI migration
-`0006_review_chat_integration.sql`. A local Claimwise submission is not an insurer
+The combined dashboard and shared-identity workflow require UI migrations through
+`0007_dashboard_policy_evidence.sql`. A local Jeeves submission is not an insurer
 filing. Earlier identity migrations deliberately stop on unrecognized historical
 statuses; reconcile existing data explicitly before migrating. This migration has
 not been validated against an existing populated deployment.
@@ -117,6 +117,29 @@ under Git-ignored `data/generated/local-rag/`. Keep that directory as well as th
 volume across restarts. The local launcher serializes vector operations for one API instance;
 it is not a production job queue. A retry can resume an interrupted index.
 
+### Try the two chats
+
+With Ollama running, open **Dashboard → Chat with Jeeves → Start a Chat**. Select an
+indexed policy (or **General questions**), then use **Send to Jeeves**. A single indexed
+policy is preselected; when there are several, choose one. Try “Wind blew a branch through
+my window and the repair cost $150. What might the policy pay?” Expand **Policy evidence**
+for page numbers and exact quotes, then reopen the conversation to see the saved answer.
+
+Every local dashboard turn runs through the same LangGraph router node used by claim chat.
+An answer searches only the selected upload for the signed-in owner, gives its passages to
+the model, and checks quotes and the draft before showing up to five sentences. General
+mode has no policy evidence. The local vector index uses Chroma’s ONNX all-MiniLM-L6-v2 on
+CPU; Ollama generates and reviews the answer by default. In Nebius mode both chats use the configured generator and reviewer. Chat turns, their policy IDs, routes, and
+citations are saved in PostgreSQL. A question alone never creates a claim.
+
+“Let’s file the claim” offers to prepare a packet after you choose a claim or a new draft.
+Only your messages for that policy carry into the preparation request; the packet still
+requires human review. A status change opens the selected claim’s status editor for you
+to confirm. Neither action submits anything to an insurer. The routed dashboard requires
+the Python workflow runtime (`CLAIM_CHAT_ROOT`); the local launcher configures it. There is
+no fallback to a hosted model. A separately configured hosted dashboard can use the same
+Python runtime with `DASHBOARD_CHAT_PROVIDER=openai` and its existing integration keys.
+
 ### Ask about a linked policy in chat
 
 Run Ollama locally with `gemma4:12b` installed (`ollama pull gemma4:12b` if needed).
@@ -156,9 +179,18 @@ UI database; closing the tab or restarting the worker does not approve or lose a
 Retry a failed generation on the saved message to avoid recording an expense twice.
 
 Ollama is the default. There is no provider fallback. To explicitly send chat context
-and retrieved passages to Nebius instead, set `CLAIM_CHAT_PROVIDER=nebius`,
+and retrieved passages to Nebius for both the dashboard and claim workflow, set `CLAIM_CHAT_PROVIDER=nebius`,
 `NEBIUS_API_KEY`, `NEBIUS_GENERATOR_MODEL`, and `NEBIUS_REVIEWER_MODEL` in the
-server-side `.env.local` and restart. The local test does not use those credentials.
+server-side `apps/web/.env.local` and restart. Use two distinct chat models that support
+JSON-schema output. From `apps/api`, run `.venv/bin/python -m scripts.check_nebius --list`
+with just the key to see your project's model IDs. Once both IDs are set, run
+`.venv/bin/python -m scripts.check_nebius`: it makes two small inference calls, checking
+that the generator routes a coverage question and that the reviewer catches an invented
+incident cause. It sends only synthetic examples and does not create or modify any claim.
+The tested pair is `deepseek-ai/DeepSeek-V4.1-Flash-1017` for generation and
+`Qwen/Qwen3-235B-A22B-Instruct-2507` for review. Recheck availability in your project
+before switching. Langfuse generation observations record the selected model and its
+`model_role` when worker tracing is enabled.
 
 ### Langfuse observability
 
@@ -213,3 +245,15 @@ to keep records. Restart the launcher after changing Clerk keys.
 
 The Python synthetic agent demo, if separately running on port 8000, remains
 independent of this UI/database.
+
+### Verify local workflow traces
+
+In the Git-ignored `apps/web/.env.local`, set `LANGFUSE_TRACING_ENABLED=true`,
+`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, and the `LANGFUSE_BASE_URL` for the
+same Langfuse project/region. Restart the local launcher after a change. Dashboard
+turns appear as **dashboard-chat** in the conversation's UUID session; starting or
+resuming a packet appears as **claim-workflow** in the review run's UUID session
+(the `run` in the review URL). Earlier turns are not backfilled. Expand the trace
+to see the stages executed, Ollama token counts when available, and any local
+policy searches. A pause for human review is normal. The web workers export
+metadata only, and each worker flushes its trace before exiting.

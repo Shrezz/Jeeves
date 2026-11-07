@@ -9,7 +9,7 @@ import { ArrowDownToLine, ArrowRight, Check, CheckCircle2, CircleAlert, FileText
 import { Btn, cx, inputCls } from '@/components/cw';
 
 export type Go = (s: ScreenId) => void;
-export type ScreenId = 'upload' | 'dashboard' | 'chat' | 'review' | 'status';
+export type ScreenId = 'upload' | 'dashboard' | 'chat' | 'review';
 
 const maxBytes = 20 * 1024 * 1024;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -117,11 +117,11 @@ function UploadOutcome({
 
   useEffect(() => {
     headingRef.current?.focus();
-    if (verified) document.title = 'Saved policy — Claimwise';
-    else if (kind === 'failed') document.title = 'Upload Failed — Claimwise';
-    else if (checking) document.title = 'Checking saved policy — Claimwise';
-    else if (lookupError) document.title = 'Couldn’t verify save — Claimwise';
-    else if (missing) document.title = 'Policy not found — Claimwise';
+    if (verified) document.title = 'Saved policy — Jeeves';
+    else if (kind === 'failed') document.title = 'Upload Failed — Jeeves';
+    else if (checking) document.title = 'Checking saved policy — Jeeves';
+    else if (lookupError) document.title = 'Couldn’t verify save — Jeeves';
+    else if (missing) document.title = 'Policy not found — Jeeves';
   }, [verified, kind, checking, lookupError, missing]);
 
   if (kind === 'success' && checking && !policy) {

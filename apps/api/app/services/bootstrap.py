@@ -10,8 +10,8 @@ from fastapi import HTTPException, Request
 from app.agents.checkpoints import memory_checkpointer
 from app.agents.graph import build_graph
 from app.services.fixtures import FixtureStore, fixture_context
-from app.services.nebius import NebiusModel
 from app.services.keenable import KeenableSearch
+from app.services.nebius import NEBIUS_BASE_URL, nebius_pair
 from app.services.workflow import WorkflowService
 
 
@@ -46,13 +46,10 @@ async def demo_backend():
             if not all((api_key, generator_id, reviewer_id)):
                 raise ValueError("Nebius mode requires API key and both model IDs")
             client = httpx.AsyncClient(
-                base_url="https://api.tokenfactory.nebius.com/v1/",
+                base_url=NEBIUS_BASE_URL,
                 headers={"Authorization": "Bearer " + api_key},
             )
-            generator, reviewer = (
-                NebiusModel(client, generator_id),
-                NebiusModel(client, reviewer_id),
-            )
+            generator, reviewer = nebius_pair(client, generator_id, reviewer_id)
         service = WorkflowService(
             build_graph(memory_checkpointer()),
             fixture_context(

@@ -92,11 +92,5 @@ export const inputCls =
   'w-full rounded-lg border border-input bg-[hsl(40_40%_99%)] px-3 py-2 text-sm placeholder:text-muted-foreground/70 transition-colors hover:border-[hsl(178_30%_55%)] focus:border-primary focus:outline-none focus-visible:outline-2 aria-[invalid=true]:border-destructive aria-[invalid=true]:border-2';
 
 export function Mark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 32 32" className={className} aria-hidden>
-      <rect width="32" height="32" rx="9" fill="hsl(178 64% 27%)" />
-      <path d="M9 16.5 16 10l7 6.5V23a1 1 0 0 1-1 1h-4v-5h-4v5h-4a1 1 0 0 1-1-1z" fill="hsl(40 40% 97%)" />
-      <circle cx="23.5" cy="9" r="3" fill="hsl(38 92% 55%)" />
-    </svg>
-  );
+  return <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className={className} />;
 }

@@ -102,3 +102,12 @@ def test_env_url_is_read_at_call_time(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="intercept"):
         migrate(directory=tmp_path, connector=connector)
     assert connector.call_args.args[0] == "postgresql://test.invalid/placeholder"
+
+
+def test_each_shipped_ui_0007_can_follow_the_other(tmp_path):
+    names = ["0007_dashboard_policy_evidence.sql", "0007_pending_repair_status.sql"]
+    for name in names:
+        (tmp_path / name).write_text("SELECT 1;")
+    plan = load_migrations(tmp_path)
+    for current, other in (plan, plan[::-1]):
+        assert pending_migrations(plan, {current.filename: current.checksum}) == [other]

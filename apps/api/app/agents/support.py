@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from dataclasses import asdict
 from decimal import Decimal
 from typing import Any
@@ -109,6 +110,14 @@ topic or missing exclusion/limit requires a new search. If uncertain, search. Re
     return passages
 
 
+def current_incident_statement(message: str) -> str | None:
+    """An explicitly restated account, never extracted from a prior assistant turn."""
+    match = re.fullmatch(
+        r'\s*(?:My )?incident statement:\s*[“"]([^”"\n]{1,2000})[”"]\s*', message, re.IGNORECASE
+    )
+    return match[1] if match else None
+
+
 def model_payload(
     state: AgentState,
     claim: ClaimSnapshot | None,
@@ -116,12 +125,37 @@ def model_payload(
 ) -> dict[str, Any]:
     review = state.get("review")
     decision = state.get("human_decision")
+    correction = state.get("latest_correction") or (
+        decision.feedback if decision and decision.action == "edit" else None
+    )
+    request = state["request"].model_dump(mode="json")
+    original = request["message"]
+    if correction:
+        # Keep accumulated reports for unchanged facts without presenting stale
+        # instructions as the current request. Human approval is tracked separately.
+        request["message"] = correction
+    statement = current_incident_statement(original)
+    confirmed = claim.model_dump(mode="json") if claim else None
+    if statement and confirmed:
+        # For a full restatement do not present superseded unapproved notes as current facts.
+        # Keep structured claim facts, attachments, and the original stored history intact.
+        confirmed["notes"] = [statement]
     return {
-        "request": state["request"].model_dump(mode="json"),
-        "confirmed_claim": claim.model_dump(mode="json") if claim else None,
+        **({"current_incident_statement": statement} if statement else {}),
+        "request": request,
+        **(
+            {
+                "earlier_request_and_clarifications": original.removesuffix(
+                    "\nUser edit: " + correction
+                )
+            }
+            if correction
+            else {}
+        ),
+        "confirmed_claim": confirmed,
         "evidence": [asdict(item) for item in evidence],
         "review_feedback": review.verdict.model_dump(mode="json") if review else None,
-        "requested_edits": decision.feedback if decision and decision.action == "edit" else None,
+        "requested_edits": correction,
         "clarified_repair_status": state.get("clarified_repair_status"),
     }
 
@@ -149,11 +183,14 @@ def draft_update(
     }
 
 
-def calculate_estimate(coverage: CoverageDraft) -> PaymentEstimate | None:
+def calculate_estimate(
+    coverage: CoverageDraft, *, if_eligible: bool = False
+) -> PaymentEstimate | None:
     """Only the flat-deductible synthetic demo is supported; never turn unknowns into zero."""
     if (
-        coverage.conclusion != "likely_covered"
-        or coverage.missing_information
+        coverage.conclusion == "likely_not_covered"
+        or (not if_eligible and (coverage.conclusion == "unclear" or coverage.missing_information))
+        or (if_eligible and not coverage.citation_ids)
         or coverage.covered_amount is None
         or coverage.deductible is None
     ):
@@ -162,6 +199,13 @@ def calculate_estimate(coverage: CoverageDraft) -> PaymentEstimate | None:
         covered_amount=coverage.covered_amount,
         deductible=coverage.deductible,
         estimated_payment=max(Decimal("0.00"), coverage.covered_amount - coverage.deductible),
+        **(
+            {
+                "basis": "If the reported expense is eligible under the cited policy, subtract the flat deductible, with a minimum payment of zero."
+            }
+            if if_eligible
+            else {}
+        ),
     )
 
 

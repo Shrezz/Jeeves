@@ -18,10 +18,10 @@ const sections = [
   {
     id: 'submitted',
     title: 'Submitted Claim',
-    description: 'Track records submitted in Claimwise, claims you marked as filed with your insurer, and recorded decisions.',
-    empty: 'No submitted claims recorded. Submit a reviewed record in Claimwise or record that you filed with your insurer.',
-    action: 'Update status',
-    href: '/workspace/status',
+    description: 'Track records submitted in Jeeves, claims you marked as filed with your insurer, and recorded decisions.',
+    empty: 'No submitted claims recorded. Submit a reviewed record in Jeeves or record that you filed with your insurer.',
+    action: 'View claims',
+    href: '/workspace/claim',
     Icon: ClipboardCheck,
   },
 ] as const;

@@ -1,3 +1,4 @@
+import { PolicyEvidence } from '@/components/policy-evidence';
 import { Link } from 'wouter';
 import { GUIDANCE_LEASE_MS, claimStatusLabel } from "@workspace/domain";
 import { FileText, Image, LoaderCircle, Video } from 'lucide-react';
@@ -58,15 +59,11 @@ function GuidanceCard({
     return <div role="status" aria-live="polite" className="mt-3 rounded-xl border border-[hsl(38_70%_65%)] bg-accent/60 p-4"><p className="text-sm font-semibold">{stale ? 'Guidance is taking longer than expected.' : 'Your message is saved; guidance is unavailable.'}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Retry guidance without resending your message or expense.</p><button type="button" data-testid={`button-retry-guidance-${messageId}`} onClick={onRetry} className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-lg border border-input bg-card px-3 text-sm font-semibold hover:border-primary hover:text-primary">Retry guidance</button></div>;
   }
   if (guidance?.state === 'ready' && guidance.content) {
-    return <article role="status" aria-live="polite" className="mt-3 rounded-2xl rounded-bl-md border border-[hsl(200_24%_82%)] bg-[hsl(200_35%_96%)] px-4 py-3 text-sm leading-6"><p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-primary">Claimwise AI guidance · {formattedTime(guidance.updatedAt)}</p><div className="space-y-2">{guidance.content.split(/\n+/).filter(Boolean).map((paragraph, i) => <p key={i}>{paragraph}</p>)}</div>
+    return <article role="status" aria-live="polite" className="mt-3 rounded-2xl rounded-bl-md border border-[hsl(200_24%_82%)] bg-[hsl(200_35%_96%)] px-4 py-3 text-sm leading-6"><p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-primary">Jeeves · AI guidance · {formattedTime(guidance.updatedAt)}</p><div className="space-y-2">{guidance.content.split(/\n+/).filter(Boolean).map((paragraph, i) => <p key={i}>{paragraph}</p>)}</div>
       {guidance.workflow && ['human_review','needs_information','completed','rejected'].includes(guidance.workflow.phase) && <Link
         href={'/workspace/review?claim='+encodeURIComponent(guidance.claimId)+'&run='+encodeURIComponent(guidance.id)}
         className="mt-3 inline-flex rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">{guidance.workflow.phase === 'needs_information' ? 'Provide missing details' : guidance.workflow.route === 'file_claim' ? 'Review claim packet' : 'Review proposed update'}</Link>}
-      {guidance.sources.length > 0 && <details className="mt-3 border-t border-primary/20 pt-2 text-xs leading-5">
-        <summary className="cursor-pointer font-semibold text-primary">Policy evidence · {Array.from(new Set(guidance.sources.map(s => s.page))).sort((a, b) => a - b).map(p => 'p. ' + p).join(', ')}</summary>
-        <ul className="mt-2 space-y-2">{guidance.sources.map((s, i) => <li key={i} className="border-l-2 border-primary/40 pl-3"><p className="font-semibold">Page {s.page}{s.section && ' · ' + s.section}</p><blockquote>“{s.excerpt}”</blockquote></li>)}</ul>
-      </details>}
-      {guidance.workflow?.publicWebSearch && <div className="mt-3 border-t border-primary/20 pt-2 text-xs leading-5"><p className="font-semibold">Public web results · not policy evidence</p>{guidance.workflow.publicWebSearch.status === 'unavailable' ? <p>Public web search is unavailable. Your policy answer remains separate.</p> : guidance.workflow.publicWebSearch.results.length === 0 ? <p>No public results were found.</p> : <ul className="mt-2 space-y-2">{guidance.workflow.publicWebSearch.results.map((item, i) => <li key={i}><a href={item.url} target="_blank" rel="noopener noreferrer" className="font-semibold underline">{item.title || item.url}</a><p>{item.snippet}</p></li>)}</ul>}</div>}</article>;
+      <PolicyEvidence sources={guidance.sources} /></article>;
   }
   return <div className="mt-3 rounded-xl border border-dashed border-primary/25 bg-[hsl(176_30%_96%)] px-4 py-3"><p className="text-sm font-semibold">Guidance hasn’t started for this message.</p><button type="button" data-testid={`button-get-guidance-${messageId}`} onClick={onRetry} className="mt-2 inline-flex min-h-9 items-center gap-2 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90">Get guidance</button></div>;
 }

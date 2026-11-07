@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { Claim, ClaimEvidence, Policy } from '@workspace/api-client-react';
 import { UploadCloud, X } from 'lucide-react';
 import { EvidenceIcon } from './claim-conversation';
@@ -25,8 +26,10 @@ export function ClaimSidebar({
   policy,
   evidence,
   attachedIds,
+  statusEditor,
   onRemoveAttachment,
 }: {
+  statusEditor: ReactNode;
   claim: Claim;
   policy: Policy | null;
   evidence: ClaimEvidence[];
@@ -35,6 +38,7 @@ export function ClaimSidebar({
 }) {
   return (
     <aside className="space-y-4">
+      {statusEditor}
       <section className="rounded-2xl border border-card-border bg-card p-5">
         <div className="flex items-center justify-between"><h2 className="font-display text-xl">Evidence</h2><span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold">{evidence.length} {evidence.length === 1 ? 'item' : 'items'}</span></div>
         {evidence.length ? <ul className="mt-4 space-y-2">{evidence.map((item) => <li key={item.id} className="flex items-start gap-3 rounded-xl border border-card-border p-3"><span className="mt-0.5"><EvidenceIcon contentType={item.contentType} /></span><div className="min-w-0 flex-1"><a href={documentHref(item.documentUrl)} download={item.fileName} className="block truncate text-sm font-semibold hover:text-primary">{item.fileName}</a><p className="mt-1 text-xs text-muted-foreground">{item.contentType.startsWith('video/') ? 'Video' : item.contentType.startsWith('image/') ? 'Photo' : 'Document'} · {fileSize(item.size)} · {dateTime(item.createdAt)}</p></div>{attachedIds.includes(item.id) && <button type="button" aria-label={`Remove ${item.fileName} from next entry`} className="rounded p-1 text-muted-foreground hover:text-foreground" onClick={() => onRemoveAttachment(item.id)}><X className="h-4 w-4" aria-hidden /></button>}</li>)}</ul>

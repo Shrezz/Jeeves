@@ -140,7 +140,7 @@ function PolicySummary({
 
 export default function DashboardScreen({ go }: { go: Go }) {
   useEffect(() => {
-    document.title = 'Dashboard — Claimwise';
+    document.title = 'Dashboard — Jeeves';
   }, []);
 
   const { data, isLoading, isError, refetch } = useListPolicies({

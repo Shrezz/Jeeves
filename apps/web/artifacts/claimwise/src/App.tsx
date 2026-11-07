@@ -12,7 +12,7 @@ import DashboardScreen from '@/pages/dashboard';
 import AccountPage from '@/pages/account';
 import Landing from '@/pages/landing';
 import NotFound from '@/pages/not-found';
-import { ChatScreen, ClaimChooserScreen, ReviewScreen, StatusScreen } from '@/pages/screens-b';
+import { ChatScreen, ClaimChooserScreen, ReviewScreen } from '@/pages/screens-b';
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -97,14 +97,14 @@ const clerkAppearance = {
 function AuthShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <header className="px-6 py-4"><Link href="/" className="inline-flex items-center gap-2" data-testid="link-home"><Mark className="h-7 w-7" /><span className="font-bold tracking-tight">Claimwise</span></Link></header>
+      <header className="px-6 py-4"><Link href="/" className="inline-flex items-center gap-2" data-testid="link-home"><Mark className="h-7 w-7" /><span className="font-bold tracking-tight">Jeeves</span></Link></header>
       <div className="cw-enter flex flex-1 items-center justify-center px-4 pb-16">{children}</div>
     </div>
   );
 }
 
 function SignInPage() {
-  useEffect(() => { document.title = 'Sign in — Claimwise'; }, []);
+  useEffect(() => { document.title = 'Sign in — Jeeves'; }, []);
   return (
     <AuthShell>
       <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} fallbackRedirectUrl={`${basePath}/workspace/dashboard`} />
@@ -113,7 +113,7 @@ function SignInPage() {
 }
 
 function SignUpPage() {
-  useEffect(() => { document.title = 'Create account — Claimwise'; }, []);
+  useEffect(() => { document.title = 'Create account — Jeeves'; }, []);
   return (
     <AuthShell>
       <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} forceRedirectUrl={`${basePath}/workspace/upload`} />
@@ -132,7 +132,7 @@ function Workspace() {
   const claimId = claimMatch ? safeDecodePathPart(claimMatch[1]) : undefined;
   const validPath = path === '/workspace/account' || path === '/workspace/upload' || path === '/workspace/dashboard' || path === '/workspace/review' || path === '/workspace/status' || path === '/workspace/claim' || path === '/workspace/chat' || !!claimId || path === '/workspace/upload/failed' || !!successMatch;
   useEffect(() => {
-    if (path === '/workspace/chat') setLocation('/workspace/claim', { replace: true });
+    if (path === '/workspace/chat' || path === '/workspace/status') setLocation('/workspace/claim', { replace: true });
     else if (path === '/workspace' || !validPath) setLocation('/workspace/dashboard', { replace: true });
   }, [path, validPath, setLocation]);
   useEffect(() => {
@@ -146,8 +146,8 @@ function Workspace() {
   const { signOut } = useClerk();
   useEffect(() => {
     if (!isUploadPage || uploadOutcome === 'success') return;
-    if (uploadOutcome === 'failed') document.title = 'Upload Failed — Claimwise';
-    else document.title = 'Upload Policy — Claimwise';
+    if (uploadOutcome === 'failed') document.title = 'Upload Failed — Jeeves';
+    else document.title = 'Upload Policy — Jeeves';
   }, [isUploadPage, uploadOutcome]);
   const name = user?.fullName || user?.firstName || user?.primaryEmailAddress?.emailAddress || 'Your account';
   const initials = ((user?.firstName?.[0] ?? '') + (user?.lastName?.[0] ?? '')).toUpperCase() || name[0]?.toUpperCase() || '?';
@@ -184,7 +184,6 @@ function Workspace() {
         {claimId && <ChatScreen key={`${user?.id}:${claimId}`} claimId={claimId} />}
         {path === '/workspace/account' && <AccountPage />}
         {path === '/workspace/review' && <ReviewScreen />}
-        {path === '/workspace/status' && <StatusScreen />}
       </main>
     </div>
   );
@@ -247,7 +246,7 @@ function ClerkProviderWithRoutes() {
         signIn: {
           start: {
             title: "Welcome back",
-            subtitle: "Sign in to your Claimwise workspace",
+            subtitle: "Sign in to your Jeeves workspace",
           },
         },
         signUp: {

@@ -16,7 +16,14 @@ async def router(state: AgentState, runtime: Runtime[AgentContext]) -> AgentStat
         if request.explicit_route
         else await runtime.context.generator.generate(
             prompt=ROUTER,
-            payload={"request": request.model_dump(mode="json")},
+            payload={
+                "request": request.model_dump(mode="json"),
+                **(
+                    {"recent_turns": state["recent_turns"], "surface": "pre-claim dashboard"}
+                    if "recent_turns" in state
+                    else {}
+                ),
+            },
             output_type=RouteDecision,
         )
     )

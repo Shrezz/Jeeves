@@ -82,6 +82,7 @@ def test_human_edit_invalidates_review_and_requests_regeneration():
     assert result["phase"] == "revision_required"
     assert result["review"] is None
     assert result["human_decision"].feedback == "The cost was $175."
+    assert result["latest_correction"] == "The cost was $175."
 
 
 @pytest.mark.parametrize("stale_record", [False, True])

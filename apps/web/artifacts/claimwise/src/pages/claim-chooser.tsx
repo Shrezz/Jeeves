@@ -30,7 +30,7 @@ export default function ClaimChooserPage() {
     return () => { active.current = false; };
   }, []);
   const createRequest = useRef<{ signature: string; id: string } | null>(null);
-  useEffect(() => { document.title = 'File Your Claim — Claimwise'; }, []);
+  useEffect(() => { document.title = 'Prepare Your Claim — Jeeves'; }, []);
   const create = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const name = title.trim() || 'New claim';
@@ -51,7 +51,7 @@ export default function ClaimChooserPage() {
   };
   return (
     <main className="mx-auto max-w-6xl space-y-8 px-5 py-8 sm:px-8 sm:py-12">
-      <header className="flex flex-wrap items-end justify-between gap-5"><div><p className="inline-flex rounded-full border border-primary/20 bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground">Private homeowner workspace</p><h1 className="mt-3 font-display text-4xl sm:text-5xl">File Your Claim</h1><p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">Start with a free-form conversation about your loss. You can add details, photos, and videos as you go.</p></div><Link href="/workspace/dashboard" className="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-primary hover:bg-secondary"><ArrowLeft className="h-4 w-4" aria-hidden /> Dashboard</Link></header>
+      <header className="flex flex-wrap items-end justify-between gap-5"><div><p className="inline-flex rounded-full border border-primary/20 bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground">Private homeowner workspace</p><h1 className="mt-3 font-display text-4xl sm:text-5xl">Prepare Your Claim</h1><p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">Start a claim or open an existing one to add evidence, update its status, or prepare a packet.</p></div><Link href="/workspace/dashboard" className="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-primary hover:bg-secondary"><ArrowLeft className="h-4 w-4" aria-hidden /> Dashboard</Link></header>
       <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,.88fr)]">
         <section className="rounded-3xl border border-card-border bg-card p-5 shadow-[0_1px_3px_hsl(192_30%_12%/0.04)] sm:p-7"><p className="text-xs font-bold uppercase tracking-[0.13em] text-primary">A new claim record</p><h2 className="mt-2 font-display text-2xl">Begin with a conversation.</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Create a draft and tell us what happened in your own words. Nothing is submitted to your insurer.</p>
           <form className="mt-6 space-y-5" onSubmit={(event) => void create(event)}><div><label htmlFor="claim-title" className="mb-1.5 block text-sm font-semibold">Claim title <span className="font-normal text-muted-foreground">(optional)</span></label><input id="claim-title" data-testid="input-claim-title" maxLength={160} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="New claim" className="min-h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-primary focus:outline-none" /><p className="mt-1.5 text-xs text-muted-foreground">Start with “New claim” to use your first message as the title, or enter a title now.</p></div>

@@ -1,92 +1,134 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'wouter';
-import { ArrowRight, FileText, LockKeyhole, ShieldCheck } from 'lucide-react';
-import { Mark } from '@/components/cw';
+import { ArrowRight, BookOpen, CarFront, Check, ClipboardList, FileText, HeartPulse, House, LockKeyhole, PawPrint, ReceiptText, Umbrella } from 'lucide-react';
+import { Mark, cx } from '@/components/cw';
+
+const exampleSteps = ['Coverage', 'Estimate', 'Packet'] as const;
+const insuranceCategories = [
+  { name: 'Home', icon: House, available: true },
+  { name: 'Health', icon: HeartPulse },
+  { name: 'Pet', icon: PawPrint },
+  { name: 'Vehicle', icon: CarFront },
+  { name: 'Umbrella', icon: Umbrella },
+];
+const capabilities = [
+  { icon: BookOpen, title: 'Find the clause', detail: 'Upload your policy PDF and ask about a loss in your own words. Jeeves points you to the wording and page behind its answer.' },
+  { icon: ReceiptText, title: 'Understand the numbers', detail: 'See how the deductible affects a reported repair cost. A covered loss can still have an estimated payment of $0.' },
+  { icon: ClipboardList, title: 'Prepare a claim packet', detail: 'Ask Jeeves to prepare a draft with your incident details, expenses, and policy evidence. Review it, request changes, or approve it.' },
+];
+
+function WindowSketch() {
+  return <svg aria-hidden="true" viewBox="0 0 100 100" fill="none" className="h-20 w-20 shrink-0 text-[#e6efce] sm:h-24 sm:w-24">
+    <g stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round">
+      <path fill="#416662" d="M17 15h58v68H17z" /><path d="M22 20h48v58H22zM46 20v58M22 48h48M12 84h69v4H12z" />
+      <path d="m55 26 4 8-5 4 7 4-1 6m-1-14 8-3m-8 3-7-1" />
+      <path d="M73 28c8-1 14-6 17-13" strokeDasharray="3 4" />
+    </g>
+    <circle cx="82" cy="21" r="8" fill="#f6c987" stroke="#203f40" strokeWidth="1.6" />
+    <path d="M76 16q7 1 9 12m-6-14q7 3 9 9" stroke="#875422" strokeWidth="1.1" />
+  </svg>;
+}
+
+function ClaimExample() {
+  const [step, setStep] = useState<(typeof exampleSteps)[number]>('Coverage');
+  return (
+    <aside aria-labelledby="example-heading" className="relative min-w-0 overflow-hidden rounded-3xl border border-[#c6d4c6] bg-[#fffefa] shadow-[0_20px_44px_-30px_#254b46]">
+      <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-[#214a47] px-5 py-5 text-white sm:px-7">
+        <div>
+          <p className="font-mono text-[11px] font-medium uppercase tracking-[.14em] text-[#d4e3c9]">Home insurance / Fictional example</p>
+          <h2 id="example-heading" className="mt-2 font-display text-[2rem] leading-tight sm:text-4xl">The broken window</h2>
+        </div>
+        <WindowSketch />
+      </div>
+      <div className="p-5 sm:p-7">
+        <p className="font-display text-xl leading-snug text-[#263c39]">“A baseball broke my front window. I paid $150 for the repair. Is it covered?”</p>
+        <div role="group" aria-label="Explore the claim example" className="mt-5 grid grid-cols-3 gap-1 rounded-xl border border-[#d4ded1] bg-[#eff3eb] p-1">
+          {exampleSteps.map(label => <button type="button" key={label} aria-pressed={step === label} aria-controls="example-result" onClick={() => setStep(label)}
+            className={cx('min-h-10 rounded-lg px-1 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring', step === label ? 'bg-[#214a47] text-white' : 'text-[#39534d] hover:bg-white')}>{label}</button>)}
+        </div>
+        <div id="example-result" aria-live="polite" aria-atomic="true" className="mt-4 min-h-36 text-sm leading-6 text-[#42514b]">
+          {step === 'Coverage' && <>
+            <p className="font-semibold text-[#214a47]">The cause matters.</p>
+            <blockquote className="my-2 border-l-[3px] border-[#b77a3a] pl-3">“Accidental impact by a sports ball, including a baseball, is covered unless another exclusion applies.”</blockquote>
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-[#47625a]"><BookOpen size={15} aria-hidden /> Sample policy · page 2, §2.2</p>
+          </>}
+          {step === 'Estimate' && <>
+            <p className="flex items-baseline justify-between gap-2"><span className="font-semibold text-[#214a47]">Estimated payment</span><strong className="font-display text-3xl text-[#214a47]">$0</strong></p>
+            <p className="my-2">Even if the full $150 repair is eligible, it falls below this policy’s $1,000 deductible.</p>
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-[#47625a]"><BookOpen size={15} aria-hidden /> Sample policy · page 3, §4</p>
+          </>}
+          {step === 'Packet' && <>
+            <p className="font-semibold text-[#214a47]">Draft for homeowner review</p>
+            <ul className="mt-2 space-y-1">
+              <li className="flex items-start gap-2"><Check size={16} className="mt-1 shrink-0 text-primary" aria-hidden /> Incident and $150 reported repair</li>
+              <li className="flex items-start gap-2"><Check size={16} className="mt-1 shrink-0 text-primary" aria-hidden /> Supporting clauses from pages 2 and 3</li>
+              <li className="flex items-start gap-2"><FileText size={15} className="mt-1 shrink-0" aria-hidden /> Invoice still to attach</li>
+            </ul>
+          </>}
+        </div>
+      </div>
+    </aside>
+  );
+}
 
 export default function Landing() {
-  useEffect(() => { document.title = 'Add your policy — Claimwise'; }, []);
+  useEffect(() => { document.title = 'Jeeves — Insurance paperwork and claims'; }, []);
   return (
-    <div className="min-h-[100dvh]">
-      <header className="flex items-center gap-3 px-5 py-4 sm:px-10">
-        <Mark className="h-8 w-8" /><span className="text-lg font-bold tracking-tight">Claimwise</span>
-        <nav aria-label="Account" className="ml-auto flex items-center gap-2">
-          <Link href="/sign-in" data-testid="link-sign-in" className="rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground">Sign in</Link>
-          <Link href="/sign-up" data-testid="link-sign-up-header" className="rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90">Create account</Link>
-        </nav>
+    <div className="min-h-[100dvh] bg-[#f8f7f0] text-[#1e3533]">
+      <header className="border-b border-[#d6ded1]">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-5 py-4 sm:px-10">
+          <span className="inline-flex items-center gap-2 text-lg font-bold tracking-tight"><Mark className="h-8 w-8" />Jeeves</span>
+          <nav aria-label="Account" className="flex items-center gap-2 sm:gap-4">
+            <Link href="/sign-in" data-testid="link-sign-in" className="rounded-lg px-2 py-2 text-sm font-semibold hover:underline">Sign in</Link>
+            <Link href="/sign-up" data-testid="link-sign-up-header" className="rounded-lg border border-[#7c9488] px-3 py-2 text-sm font-semibold hover:bg-white">Create account</Link>
+          </nav>
+        </div>
       </header>
       <main>
-        <section className="cw-enter relative isolate overflow-hidden px-5 pb-16 pt-12 sm:px-10 sm:pb-24 sm:pt-20">
-          <div className="pointer-events-none absolute -right-36 -top-28 -z-10 h-[32rem] w-[32rem] rounded-full border border-primary/10 sm:right-[-8rem]">
-            <div className="absolute inset-8 rounded-full border border-primary/10" />
-            <div className="absolute inset-16 rounded-full border border-primary/10" />
-            <div className="absolute inset-24 rounded-full border border-primary/10" />
-            <div className="absolute right-1/4 top-1/4 h-44 w-44 rounded-full bg-[hsl(178_38%_82%/.24)] blur-3xl" />
-          </div>
-          <div className="relative mx-auto grid max-w-6xl gap-12 lg:grid-cols-[1.15fr_.85fr] lg:items-center">
-            <div className="max-w-2xl">
-              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-primary">A steady place after a loss</p>
-              <h1 className="mt-4 font-display text-5xl leading-[1.02] sm:text-7xl">Add your policy</h1>
-              <p className="mt-6 max-w-xl text-lg leading-8 text-muted-foreground">When home paperwork gets hard to navigate, start with one clear step: keep your homeowner policy PDF somewhere you can find it.</p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Link href="/sign-up" data-testid="link-sign-up" className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-primary px-5 font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5">Create your private folder <ArrowRight className="h-4 w-4" aria-hidden /></Link>
-                <Link href="/sign-in" data-testid="link-sign-in-hero" className="inline-flex min-h-12 items-center rounded-xl border bg-card px-5 font-semibold transition-colors hover:border-primary/50">Sign in</Link>
+        <section aria-labelledby="home-heading" className="overflow-hidden">
+          <div className="mx-auto grid max-w-7xl items-center gap-9 px-5 py-10 sm:px-10 sm:py-14 lg:grid-cols-[1.03fr_1fr] lg:gap-16 lg:py-16">
+            <div className="min-w-0">
+              <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[.12em] text-[#426459]"><span aria-hidden className="h-2 w-2 rounded-full bg-[#ad6e35]" />Meet Jeeves · Your insurance assistant</p>
+              <h1 id="home-heading" className="mt-5 max-w-[16ch] text-balance font-display text-[clamp(2.8rem,5.6vw,4.8rem)] leading-[1.02] tracking-[-.045em]">One assistant for <span className="text-[#276c5c]">paperwork and claims.</span></h1>
+              <p className="mt-5 max-w-lg text-base leading-7 text-[#4f5f58] sm:text-lg sm:leading-8">Start with home insurance. Upload your policy and tell Jeeves what happened. See which clauses apply, what your deductible means, and what goes into a claim packet you can review.</p>
+              <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-3">
+                <Link href="/sign-up" data-testid="link-sign-up" className="inline-flex min-h-12 items-center gap-3 rounded-xl bg-[#214a47] px-5 font-semibold text-white hover:bg-[#163b39]">Start with my home policy <ArrowRight size={18} aria-hidden /></Link>
+                <a href="#how-jeeves-helps" className="rounded py-2 text-sm font-semibold underline decoration-[#a0b6a6] underline-offset-4 hover:decoration-current">How it works</a>
               </div>
-              <p className="mt-4 text-xs text-muted-foreground">No insurer connection. No claim filed. Just your document, stored for you.</p>
             </div>
-            <aside className="relative mx-auto w-full max-w-md rounded-[1.75rem] border bg-card p-5 shadow-[0_28px_70px_-50px_hsl(192_30%_12%/.4)] sm:p-7" aria-label="Policy storage preview">
-              <div className="flex items-center justify-between border-b pb-4">
-                <span className="flex items-center gap-2 text-sm font-semibold"><Mark className="h-6 w-6" /> Claimwise</span>
-                <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground">Your workspace</span>
-              </div>
-              <div className="py-7">
-                <p className="text-xs font-bold uppercase tracking-[0.13em] text-primary">First step</p>
-                <h2 className="mt-2 font-display text-3xl">Add your policy</h2>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">Store your PDF and the details you choose to enter.</p>
-                <div className="mt-6 flex items-center gap-3 rounded-xl border border-dashed border-primary/35 bg-secondary/40 p-4">
-                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-card text-primary"><FileText className="h-5 w-5" aria-hidden /></span>
-                  <div><p className="text-sm font-semibold">Home policy PDF</p><p className="mt-0.5 text-xs text-muted-foreground">Private document storage</p></div>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 border-t pt-4 text-xs leading-5 text-muted-foreground">
-                <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-                <p>Your original PDF stays in your private policy folder.</p>
-              </div>
-            </aside>
+            <ClaimExample />
           </div>
         </section>
 
-        <section className="border-y bg-card px-5 py-14 sm:px-10 sm:py-16">
-          <div className="mx-auto grid max-w-6xl gap-10 md:grid-cols-[.8fr_1.2fr]">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Small steps, clear boundaries</p>
-              <h2 className="mt-3 max-w-sm font-display text-3xl leading-tight sm:text-4xl">Paperwork belongs somewhere you trust.</h2>
-            </div>
-            <div className="grid gap-7 sm:grid-cols-2">
-              <article className="flex gap-4">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-primary"><ShieldCheck className="h-5 w-5" aria-hidden /></span>
-                <div><h3 className="font-semibold">Private by account</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">Your saved policies are tied to your signed-in account and stay available in My policies.</p></div>
-              </article>
-              <article className="flex gap-4">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-primary"><FileText className="h-5 w-5" aria-hidden /></span>
-                <div><h3 className="font-semibold">The original stays yours</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">Download the document you uploaded whenever you need to refer back to it.</p></div>
-              </article>
-              <p className="text-sm leading-6 text-muted-foreground sm:col-span-2">Today Claimwise is for secure document storage and details you enter yourself. Only your insurer can decide a claim.</p>
-            </div>
+        <section aria-labelledby="categories-heading" className="border-t border-[#d6ded1] bg-[#eef2e9]">
+          <div className="mx-auto max-w-7xl px-5 py-7 sm:px-10">
+            <h2 id="categories-heading" className="font-display text-2xl">Insurance categories</h2>
+            <ul className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+              {insuranceCategories.map(({name, icon: Icon, available}) => <li key={name} className={cx('flex items-center gap-3 rounded-xl border px-3 py-3', available ? 'border-[#98b7a3] bg-[#e0eddf]' : 'border-[#d2dbcd] bg-[#f8faf5]')}>
+                <Icon size={21} strokeWidth={1.6} aria-hidden className={available ? 'text-[#235b47]' : 'text-[#56685c]'} />
+                <div><p className="text-sm font-semibold">{name}</p><p className={cx('mt-0.5 text-xs', available ? 'font-semibold text-[#235b47]' : 'text-[#56645a]')}>{available ? 'Available now' : 'Coming soon'}</p></div>
+              </li>)}
+            </ul>
           </div>
         </section>
 
-        <section className="px-5 py-16 sm:px-10 sm:py-20">
-          <div className="mx-auto flex max-w-6xl flex-col gap-6 rounded-3xl bg-[hsl(178_28%_22%)] p-7 text-[hsl(40_33%_97%)] sm:flex-row sm:items-center sm:justify-between sm:p-10">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[hsl(166_42%_78%)]">Ready when you are</p>
-              <h2 className="mt-3 font-display text-3xl sm:text-4xl">Start with the policy you already have.</h2>
-              <p className="mt-2 max-w-xl text-sm leading-6 text-[hsl(40_20%_85%)]">Create an account, upload a PDF, and keep it within reach. You can add or review documents at your own pace.</p>
-            </div>
-            <Link href="/sign-up" className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-[hsl(40_33%_97%)] px-5 font-semibold text-[hsl(178_28%_22%)] transition-transform hover:-translate-y-0.5">Create account <ArrowRight className="h-4 w-4" aria-hidden /></Link>
+        <section id="how-jeeves-helps" aria-labelledby="steps-heading" className="scroll-mt-4 bg-[#193b39] text-[#f8f7ef]">
+          <div className="mx-auto max-w-7xl px-5 py-10 sm:px-10 sm:py-12">
+            <h2 id="steps-heading" className="font-display text-3xl tracking-tight sm:text-4xl">What Jeeves can do for you</h2>
+            <ol className="mt-7 grid gap-6 md:grid-cols-3 md:gap-9">
+              {capabilities.map(({icon: Icon, title, detail}, index) => <li key={title} className="border-t border-white/25 pt-4">
+                <div className="flex items-center justify-between text-[#c1d9bc]"><span className="font-mono text-sm">0{index + 1}</span><Icon size={19} strokeWidth={1.6} aria-hidden /></div>
+                <h3 className="mt-3 font-display text-2xl">{title}</h3>
+                <p className="mt-2 max-w-md text-sm leading-6 text-[#d4e2d8]">{detail}</p>
+              </li>)}
+            </ol>
           </div>
         </section>
       </main>
-      <footer className="border-t px-5 py-6 text-xs text-muted-foreground sm:px-10">Claimwise is a document-organizing tool, not an insurer, adjuster, or legal advisor.</footer>
+      <footer className="mx-auto flex max-w-7xl flex-wrap justify-between gap-3 px-5 py-6 text-xs leading-5 text-[#52635b] sm:px-10">
+        <span className="inline-flex items-center gap-2"><LockKeyhole size={14} aria-hidden /> Your policy stays in your private workspace.</span>
+        <span>Your insurer makes the final coverage and payment decision.</span>
+      </footer>
     </div>
   );
 }

@@ -22,6 +22,7 @@ Draft = CoverageDraft | StatusDraft | PacketDraft
 
 class AgentState(TypedDict, total=False):
     request: Required[AgentRequest]
+    recent_turns: list[dict]
     chat_reply: dict
     scope_decision: Literal["allowed", "out_of_scope"]
     clarified_repair_status: Literal["pending", "scheduled", "completed"] | None
@@ -37,6 +38,7 @@ class AgentState(TypedDict, total=False):
     answer: ReviewedAnswer | None
     questions: list[str]
     human_decision: HumanDecision | None
+    latest_correction: str
     revision_count: int
     action_result: ActionResult | None
     phase: Literal[

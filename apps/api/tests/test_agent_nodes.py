@@ -109,6 +109,22 @@ def test_missing_deductible_is_not_assumed_to_be_zero():
     assert calculate_estimate(coverage_draft(deductible=None)) is None
 
 
+def test_unconfirmed_peril_only_has_an_explicitly_conditional_packet_estimate():
+    uncertain = coverage_draft(conclusion="unclear", missing_information=["Peril unconfirmed"])
+    assert calculate_estimate(uncertain) is None
+    estimate = calculate_estimate(uncertain, if_eligible=True)
+    assert (
+        estimate.estimated_payment == 0 and "If the reported expense is eligible" in estimate.basis
+    )
+    for change in (
+        {"deductible": None},
+        {"covered_amount": None},
+        {"citation_ids": []},
+        {"conclusion": "likely_not_covered"},
+    ):
+        assert calculate_estimate(uncertain.model_copy(update=change), if_eligible=True) is None
+
+
 def test_missing_policy_is_uncertainty_not_pass_or_denial():
     context = make_context()
     context.policies.evidence = []
@@ -205,11 +221,11 @@ def test_packet_preserves_combined_request_and_allows_zero_payment():
     context.generator.outputs.append(packet_draft(context))
     state = make_state("file_claim", message="I paid $150; prepare the packet anyway.")
     state.update(run(file_claim, state, context))
-    context.reviewer.outputs.append(ReviewVerdict(outcome="pass"))
+    context.reviewer.outputs.extend([{"unsupported": []}, ReviewVerdict(outcome="pass")])
     state.update(run(reviewer, state, context))
     assert state["phase"] == "human_review"
     assert state["estimate"].estimated_payment == 0
-    assert "PACKET REVIEW" in context.reviewer.calls[0]["prompt"]
+    assert "PACKET REVIEW" in context.reviewer.calls[1]["prompt"]
     assert context.generator.calls[0]["payload"]["request"]["message"] == state["request"].message
 
 
@@ -331,10 +347,10 @@ def test_optional_invoice_is_reviewed_without_requiring_an_upload():
     )
     state = make_state("file_claim")
     state.update(run(file_claim, state, context))
-    context.reviewer.outputs.append(ReviewVerdict(outcome="pass"))
+    context.reviewer.outputs.extend([{"unsupported": []}, ReviewVerdict(outcome="pass")])
     state.update(run(reviewer, state, context))
     assert state["phase"] == "human_review" and state["estimate"] is None
-    assert context.reviewer.calls[0]["payload"]["calculated_estimate"] is None
+    assert context.reviewer.calls[1]["payload"]["calculated_estimate"] is None
 
 
 def test_unresolved_coverage_cannot_be_cleared_into_an_estimate():

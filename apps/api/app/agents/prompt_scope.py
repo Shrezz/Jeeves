@@ -23,7 +23,7 @@ _IN_SCOPE = re.compile(
     r"\b(?:insur(?:ance|er|ers|ed)|claim(?:s|ant)?|polic(?:y|ies)|cover(?:age|ed)?|"
     r"deductible|premium|adjuster|exclusion|endorsement|reimburse(?:ment)?|"
     r"liabilit(?:y|ies)|payout|settlement|declaration|loss|damage(?:d|s)?|"
-    r"repair(?:s|ed|ing)?|replac(?:e|ement)|incident|accident|storm|wind|windborne|"
+    r"repair(?:s|ed|ing)?|replac(?:e|ement)|incident|accident|storm|wind|windstorm|windblown|windborne|"
     r"flood|fire|hail|roof|window|pipe|leak|theft|stolen|broken|breakage|"
     r"receipt|invoice|estimate|expense|cost|paid|payment|evidence|attachment|"
     r"photograph|photo|pictures?|document|status|submit(?:ted|ting)?|fixed|"

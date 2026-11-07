@@ -99,6 +99,27 @@ class PaymentEstimate(Contract):
     basis: str = "Simplified demo estimate: covered amount minus a flat deductible, minimum zero."
 
 
+class IncidentMismatch(Contract):
+    field: Literal[
+        "facts.cause",
+        "facts.description",
+        "facts.occurred_on",
+        "facts.repair_cost",
+        "facts.repair_status",
+        "narrative",
+    ]
+    detail: Text
+
+
+class IncidentFactReview(Contract):
+    unsupported: list[IncidentMismatch]
+
+
+class CorrectionAudit(Contract):
+    comparison: Text
+    result: Literal["contradicted", "omitted", "consistent"]
+
+
 class ReviewIssue(Contract):
     check: Text
     detail: Text

@@ -20,6 +20,9 @@ export const GetJeevConversationParams = zod.object({
   "id": zod.coerce.string().uuid()
 })
 
+
+
+
 export const GetJeevConversationResponse = zod.object({
   "conversation": zod.object({
   "id": zod.string().uuid(),
@@ -29,6 +32,14 @@ export const GetJeevConversationResponse = zod.object({
   "messages": zod.array(zod.object({
   "id": zod.string().uuid(),
   "content": zod.string(),
+  "policyId": zod.string().uuid().nullable(),
+  "route": zod.enum(['answer_claim', 'file_claim', 'save_claim_status', 'clarify']).optional(),
+  "sources": zod.array(zod.object({
+  "chunkId": zod.string(),
+  "page": zod.number().int().min(1),
+  "section": zod.string(),
+  "excerpt": zod.string()
+})),
   "reply": zod.string().nullable(),
   "replyState": zod.enum(['pending', 'ready', 'error']),
   "createdAt": zod.string(),
@@ -47,12 +58,24 @@ export const sendJeevMessageBodyContentMax = 12000;
 
 export const SendJeevMessageBody = zod.object({
   "messageId": zod.string().uuid(),
+  "policyId": zod.string().uuid().nullish(),
   "content": zod.string().min(1).max(sendJeevMessageBodyContentMax)
 })
+
+
+
 
 export const SendJeevMessageResponse = zod.object({
   "id": zod.string().uuid(),
   "content": zod.string(),
+  "policyId": zod.string().uuid().nullable(),
+  "route": zod.enum(['answer_claim', 'file_claim', 'save_claim_status', 'clarify']).optional(),
+  "sources": zod.array(zod.object({
+  "chunkId": zod.string(),
+  "page": zod.number().int().min(1),
+  "section": zod.string(),
+  "excerpt": zod.string()
+})),
   "reply": zod.string().nullable(),
   "replyState": zod.enum(['pending', 'ready', 'error']),
   "createdAt": zod.string(),

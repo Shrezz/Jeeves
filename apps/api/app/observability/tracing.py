@@ -135,18 +135,13 @@ def observation(
         return
     try:
         yield SafeSpan(span)
-    except GraphInterrupt:
-        # A graph interrupt is an expected pause for human input, not a failure.
-        SafeSpan(span).update(output={"interrupted": True})
-        try:
-            manager.__exit__(None, None, None)
-        except Exception:  # noqa: BLE001 - telemetry failures must not break the application
-            logger.warning("Unable to close Langfuse observation")
-        raise
-    except BaseException:
+    except BaseException as exc:
         # Do not export exception messages or stacks: provider errors can contain
         # policy text, headers, or credentials. Preserve the original exception.
-        SafeSpan(span).update(level="ERROR", status_message="Operation failed")
+        if isinstance(exc, GraphInterrupt):
+            SafeSpan(span).update(output={"interrupted": True, "awaiting_user": True})
+        else:
+            SafeSpan(span).update(level="ERROR", status_message="Operation failed")
         try:
             manager.__exit__(None, None, None)
         except Exception:  # noqa: BLE001 - telemetry failures must not break the application
@@ -195,3 +190,13 @@ def trace_session(session_id: str) -> Iterator[None]:
             manager.__exit__(None, None, None)
         except Exception:  # noqa: BLE001 - telemetry failures must not break the application
             logger.warning("Unable to close Langfuse session")
+
+
+@contextmanager
+def worker_trace(name: str, session_id: str) -> Iterator[SafeSpan]:
+    """One trace per invocation, grouped across resumes, flushed before the process exits."""
+    try:
+        with observation(name) as span, trace_session(session_id):
+            yield span
+    finally:
+        flush_traces()

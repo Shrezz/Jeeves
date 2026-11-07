@@ -57,6 +57,7 @@ async def human_review(state: AgentState, runtime: Runtime[AgentContext]) -> Age
                 }
             ),
             "human_decision": decision,
+            "latest_correction": decision.feedback,
             "review": None,
             "answer": None,
             "revision_count": 0,

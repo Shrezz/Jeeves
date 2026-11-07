@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from app.agents.context import Output
 from app.observability.tracing import capture_synthetic_content, observation, sanitize_content
 from app.services.chat_guidance import guidance
-from app.services.nebius import NebiusModel
+from app.services.nebius import NEBIUS_BASE_URL, nebius_pair
 
 
 @dataclass
@@ -138,12 +138,11 @@ async def chat_models():
             yield model, model
     elif mode == "nebius":
         async with httpx.AsyncClient(
-            base_url="https://api.tokenfactory.nebius.com/v1/",
+            base_url=NEBIUS_BASE_URL,
             headers={"Authorization": "Bearer " + os.environ["NEBIUS_API_KEY"]},
         ) as client:
-            yield (
-                NebiusModel(client, os.environ["NEBIUS_GENERATOR_MODEL"]),
-                NebiusModel(client, os.environ["NEBIUS_REVIEWER_MODEL"]),
+            yield nebius_pair(
+                client, os.environ["NEBIUS_GENERATOR_MODEL"], os.environ["NEBIUS_REVIEWER_MODEL"]
             )
     else:
         raise ValueError("Unsupported chat provider")

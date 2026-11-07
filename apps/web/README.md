@@ -1,6 +1,6 @@
-# Claimwise application source
+# Jeeves application source
 
-This directory contains the current Claimwise application as a nested pnpm workspace. The existing source layout is retained so workspace dependencies resolve without modifying the rest of Jeeves.
+This directory contains the current Jeeves application as a nested pnpm workspace. The existing source layout is retained so workspace dependencies resolve without modifying the rest of Jeeves.
 
 ## Layout
 
@@ -71,11 +71,12 @@ No credentials, real policy PDFs, evidence uploads, database contents, dependenc
 
 Authentication, private policy uploads, user-owned dashboard/claims, claim evidence, AI text guidance, and manual status updates are implemented.
 
-- Chat with Jeev is a separate conversational surface with its own persisted history and reply APIs; opening or sending a conversation does not create a claim.
+- Chat with Jeeves routes policy questions, packet requests, and status changes. The local dashboard retrieves passages from the selected indexed policy and stores reviewed answers and citations separately from claims. A claim is only opened or updated through an explicit handoff.
 - Dashboard sections organize conversations, claims being prepared, and submitted records. Navigation and action labels reflect Prepare Your Claim and Review Claim.
+- Under Prepare Your Claim, open a claim and use **Claim details → Update status**. Saving records the status and an optional note in the claim history and refreshes the dashboard.
 - Review Claim loads saved incident details, expenses, and basic completeness checks through an owned review API. Users can save comments or include them when submitting. Policy citations remain empty because policy wording is not analyzed.
-- Submit Your Claim becomes available after a successful review load. It saves an immutable, dated snapshot and comments, records a single submission event, and marks the record Submitted in Claimwise. Repeat submissions are idempotent; stale edits and foreign-account access are rejected.
+- Submit Your Claim becomes available after a successful review load. It saves an immutable, dated snapshot and comments, records a single submission event, and marks the record Submitted in Jeeves. Repeat submissions are idempotent; stale edits and foreign-account access are rejected.
 
-Submission is local to Claimwise; nothing is sent to an insurer and no coverage decision is made. Summary email delivery, insurer integration, PDF export, and amendments of submitted snapshots are not implemented.
+Submission is local to Jeeves; nothing is sent to an insurer and no coverage decision is made. Summary email delivery, insurer integration, PDF export, and amendments of submitted snapshots are not implemented.
 
-The schema now includes separate Jeev conversations/messages and claim review records. Apply reviewed, non-destructive schema changes to the target database before running these features. Repository upload does not transfer existing data or run migrations.
+The schema now includes separate Jeeves conversations/messages and claim review records. Apply reviewed, non-destructive schema changes to the target database before running these features. Repository upload does not transfer existing data or run migrations.

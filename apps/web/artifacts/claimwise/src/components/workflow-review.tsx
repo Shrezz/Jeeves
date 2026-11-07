@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'wouter';
-import { type ClaimGuidance, type ClaimReview, type ClaimWorkspace, getGetClaimQueryKey, getGetClaimReviewQueryKey, getListClaimsQueryKey, useRespondToClaimReview } from '@workspace/api-client-react';
+import { type ClaimGuidance, type ClaimReview, type ClaimWorkspace, getGetClaimReviewQueryKey, getGetClaimQueryKey, getListClaimsQueryKey, useRespondToClaimReview } from '@workspace/api-client-react';
 import { Btn, Panel, inputCls } from './cw';
 import { reviewErrorMessage } from '@/lib/workflow-errors';
 
@@ -22,16 +22,17 @@ export function WorkflowReview({ guide, workspace }: { guide: ClaimGuidance; wor
         interruptId: flow.interruptId, version: flow.version, action,
         ...((action === 'edit' || action === 'clarify') ? { feedback: note.trim() } : {}),
       }});
-      cache.setQueryData<ClaimWorkspace>(getGetClaimQueryKey(guide.claimId), old => old && ({
+      const updatedWorkspace = (old: ClaimWorkspace): ClaimWorkspace => ({
         ...old, guidance: old.guidance.map(item => item.id === result.id ? result : item),
-      }));
-      cache.setQueryData<ClaimReview>(getGetClaimReviewQueryKey(guide.claimId), old => old && ({
-        ...old, workspace: { ...old.workspace, guidance: old.workspace.guidance.map(item => item.id === result.id ? result : item) },
-      }));
+      });
+      cache.setQueryData<ClaimWorkspace>(getGetClaimQueryKey(guide.claimId), old => old && updatedWorkspace(old));
+      const reviewKey = getGetClaimReviewQueryKey(guide.claimId);
+      cache.setQueryData<ClaimReview>(reviewKey, old => old && ({ ...old, workspace: updatedWorkspace(old.workspace) }));
+      void cache.invalidateQueries({ queryKey: reviewKey });
       setNote('');
       void cache.invalidateQueries({queryKey: getListClaimsQueryKey()});
     } catch (err) {
-      setError(reviewErrorMessage(err));
+      setError(reviewErrorMessage(err, action));
     } finally {
       void cache.invalidateQueries({queryKey: getGetClaimQueryKey(guide.claimId)});
       void cache.invalidateQueries({queryKey: getGetClaimReviewQueryKey(guide.claimId)});
@@ -60,7 +61,8 @@ export function WorkflowReview({ guide, workspace }: { guide: ClaimGuidance; wor
           <Btn variant="outline" disabled={respond.isPending || !note.trim()} onClick={()=>void decide('edit')}>Request changes</Btn>
           <Btn variant="ghost" disabled={respond.isPending} onClick={()=>void decide('reject')}>Decline</Btn></>}
         {clarify && <Btn disabled={respond.isPending || !note.trim()} onClick={()=>void decide('clarify')}>Continue review</Btn>}
-      </div>{respond.isPending && <p role="status">Updating this review…</p>}
+      </div>{respond.isPending && <p role="status">{respond.variables?.data.action === 'edit'
+        ? 'Preparing a new version and checking it against your correction…' : 'Updating this review…'}</p>}
       {error && <p role="alert" className="mt-2 text-sm text-destructive">{error}</p>}
     </Panel>}
     {packet && flow.phase === 'completed' && <a className="font-semibold text-primary underline" download="prepared-claim-packet.txt"

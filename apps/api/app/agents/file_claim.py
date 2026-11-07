@@ -7,7 +7,9 @@ from langgraph.runtime import Runtime
 from app.schemas.agents import PacketDraft
 
 from .context import AgentContext
-from .prompts import PACKET
+from .named_peril import apply_named_cause
+from .packet_estimate import explicit_flat_terms
+from .prompts import PACKET, RESTATED_PACKET
 from .state import AgentState
 from .support import calculate_estimate, draft_update, load_claim, model_payload, policy_evidence
 
@@ -27,16 +29,34 @@ async def file_claim(state: AgentState, runtime: Runtime[AgentContext]) -> Agent
     evidence = await policy_evidence(state, context, claim)
     payload = model_payload(state, claim, evidence)
     payload["template"] = context.template.model_dump(mode="json")
-    if context.prior_coverage:
+    if context.prior_coverage and not (
+        payload["requested_edits"] or payload.get("current_incident_statement")
+    ):
         payload["previous_reviewed_coverage"] = context.prior_coverage
     payload["available_chunk_ids"] = [item.chunk_id for item in evidence]
+    terms = explicit_flat_terms(evidence)
+    if terms:
+        payload["conditional_payment_rule"] = {
+            "source": terms.citation_id,
+            "flat_deductible": str(terms.deductible),
+            "eligible_expense_limit": str(terms.limit),
+            "meaning": "If eligible, the server will apply this formula to the reported repair expense. Explain the conditional calculation even when the policy peril is unresolved.",
+        }
     payload["attachment_inventory"] = {
         "uploaded_ids": claim.attachment_ids,
         "note": "This is the complete list. An empty list means no files have been uploaded.",
     }
     draft = await context.generator.generate(
-        prompt=PACKET, payload=payload, output_type=PacketDraft
+        prompt=RESTATED_PACKET if payload.get("current_incident_statement") else PACKET,
+        payload=payload,
+        output_type=PacketDraft,
     )
+    # When the homeowner explicitly supplies a quoted statement for this packet,
+    # preserve it word-for-word instead of asking the model to paraphrase it.
+    # Do not reuse an older quotation after a subsequent edit or clarification.
+    if statement := payload.get("current_incident_statement"):
+        draft = draft.model_copy(update={"narrative": f"Homeowner statement: “{statement}”"})
+        draft = apply_named_cause(draft, statement, evidence)
     clarified_status = state.get("clarified_repair_status")
     if clarified_status:
         # Preserve the explicit answer and remove only this redundant question.
@@ -61,6 +81,8 @@ async def file_claim(state: AgentState, runtime: Runtime[AgentContext]) -> Agent
                 ],
             }
         )
+    if terms:
+        draft = terms.apply(draft)
     return draft_update(
         state,
         draft=draft,

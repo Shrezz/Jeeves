@@ -19,7 +19,7 @@ WRITE = (
     COMMON
     + """
 Write for the homeowner, in plain text. Lead with the answer to the latest question.
-Aim for 45–85 words in 1–3 short paragraphs, with a blank line between thoughts. Use everyday
+Use at most five short sentences (fewer when enough). Aim for 45–85 words in 1–3 short paragraphs, with a blank line between thoughts. Use everyday
 language ("what broke the window?" rather than "to determine eligibility"). Mention only the
 terms that change the answer; do not catalogue all perils or exclusions. No headings,
 markdown, source numbers or page numbers in the
@@ -169,6 +169,8 @@ async def guidance(
             prompt=WRITE, payload={**payload, "feedback": feedback}, output_type=Reply
         )
         try:
+            if len(re.split(r"(?<=[.!?])\s+", draft.answer.strip())) > 5:
+                raise ValueError("Rewrite in five sentences or fewer; retain critical conditions.")
             sources = verified_sources(draft, passages)
         except ValueError as error:
             feedback = str(error)

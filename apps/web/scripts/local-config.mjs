@@ -9,6 +9,16 @@ export function localConfig(env) {
       throw new Error(`Set ${name} to a Clerk development key in apps/web/.env.local.`);
     }
   }
+  const provider = env.CLAIM_CHAT_PROVIDER || "ollama";
+  if (!["ollama", "nebius"].includes(provider)) throw new Error("Set CLAIM_CHAT_PROVIDER to ollama or nebius.");
+  if (provider === "nebius") {
+    for (const key of ["NEBIUS_API_KEY", "NEBIUS_GENERATOR_MODEL", "NEBIUS_REVIEWER_MODEL"]) {
+      if (!env[key]?.trim() || /replace[_-]?me/i.test(env[key])) throw new Error(`Nebius mode requires ${key} in apps/web/.env.local.`);
+    }
+    if (env.NEBIUS_GENERATOR_MODEL.trim() === env.NEBIUS_REVIEWER_MODEL.trim()) {
+      throw new Error("Choose distinct NEBIUS_GENERATOR_MODEL and NEBIUS_REVIEWER_MODEL IDs.");
+    }
+  }
   return {
     ...env,
     NODE_ENV: "development",
@@ -21,7 +31,8 @@ export function localConfig(env) {
     LOCAL_API_PROXY_TARGET: "http://127.0.0.1:8080",
     LOCAL_WEB_HOST: "127.0.0.1",
     BASE_PATH: "/",
-    CLAIM_CHAT_PROVIDER: env.CLAIM_CHAT_PROVIDER || "ollama",
+    CLAIM_CHAT_PROVIDER: provider,
+    DASHBOARD_CHAT_PROVIDER: provider,
     OLLAMA_MODEL: env.OLLAMA_MODEL || "gemma4:12b",
     // No automatic fallback to a hosted model.
     AI_INTEGRATIONS_OPENAI_BASE_URL: "",

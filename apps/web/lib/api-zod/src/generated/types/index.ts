@@ -38,6 +38,7 @@ export * from './jeevConversationDetail';
 export * from './jeevMessage';
 export * from './jeevMessageInput';
 export * from './jeevMessageReplyState';
+export * from './jeevMessageRoute';
 export * from './manualClaimStatus';
 export * from './notFoundResponse';
 export * from './policy';

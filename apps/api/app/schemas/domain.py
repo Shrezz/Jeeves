@@ -19,5 +19,5 @@ CLAIM_STATUS_LABELS: dict[ClaimStatus, str] = {
   "filed_by_user": "Filed by me with insurer",
   "insurer_decision_received": "Insurer decision received",
   "resolved_without_filing": "Resolved without filing",
-  "submitted_in_claimwise": "Submitted in Claimwise"
+  "submitted_in_claimwise": "Submitted in Jeeves"
 }

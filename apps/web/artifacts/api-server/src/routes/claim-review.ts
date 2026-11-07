@@ -78,7 +78,7 @@ router.post("/claims/:id/submit", async (req, res) => {
     const submittedAt = new Date();
     const status = claim.status === "filed_by_user" || claim.status === "insurer_decision_received"
       ? claim.status : "submitted_in_claimwise";
-    const notice = "Submitted in Claimwise. Not sent to an insurer.";
+    const notice = "Submitted in Jeeves. Not sent to an insurer.";
     const [updatedClaim] = await tx.update(claimsTable).set({ status, latestUpdate: notice, updatedAt: submittedAt })
       .where(eq(claimsTable.id, claim.id)).returning();
     await tx.insert(claimMessagesTable).values({

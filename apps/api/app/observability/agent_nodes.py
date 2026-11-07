@@ -25,6 +25,7 @@ _NODES = {
     "save_claim_status",
     "reviewer",
     "human_review",
+    "handoff",
     "clarify",
     "commit_action",
 }
@@ -50,6 +51,7 @@ def _summary(result: Any) -> dict[str, Any]:
         "review_pending",
         "revision_required",
         "human_review",
+        "handoff",
         "answer_ready",
         "approved",
         "rejected",

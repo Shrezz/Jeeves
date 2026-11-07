@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { claimStatusLabel } from "@workspace/domain";
 import { getAuth } from "@clerk/express";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db, claimsTable, claimMessagesTable, claimEvidenceTable, claimGuidanceTable, policiesTable } from "@workspace/db";
@@ -86,12 +87,14 @@ router.post("/claims/:id/messages", async (req, res): Promise<void> => {
   const input = body.data;
   const attachmentIds = [...new Set(input.attachmentIds ?? [])];
   const expense = input.expense == null ? null : input.expense.toFixed(2);
-  const content = input.content.trim() || (input.kind === "preparation_request" ? "Preparation requested." : "");
+  if (input.kind === "status_update" && !input.status) {
+    throw new ClaimRequestError(400, "Choose a status to record.");
+  }
+  const defaultContent = input.kind === "preparation_request" ? "Preparation requested."
+    : input.kind === "status_update" && input.status ? `Status updated to: ${claimStatusLabel(input.status)}.` : "";
+  const content = input.content.trim() || defaultContent;
   if (input.kind === "ask" && !content && expense === null && !attachmentIds.length) {
     throw new ClaimRequestError(400, "Enter a message, expense, or attach evidence before sending.");
-  }
-  if (input.kind === "status_update" && (!input.status || !content)) {
-    throw new ClaimRequestError(400, "Choose a status and enter a comment.");
   }
   if (input.kind !== "status_update" && input.status) {
     throw new ClaimRequestError(400, "Use Update status to record a status.");

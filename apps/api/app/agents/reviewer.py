@@ -38,6 +38,18 @@ async def reviewer(state: AgentState, runtime: Runtime[AgentContext]) -> AgentSt
         issues, questions = packet.validate(
             draft, claim, evidence, context, state["request"].message
         )
+        if not issues and not questions:
+            issues = await packet.review_incident(
+                draft,
+                claim,
+                state["request"].message,
+                context.reviewer,
+                latest_correction=state.get("latest_correction"),
+            )
+        if not issues and not questions and state.get("latest_correction"):
+            issues = await packet.review_correction(
+                draft, state["latest_correction"], context.reviewer
+            )
         assessment = draft.coverage
     else:
         raise ValueError("Draft type, claim context, and review route must agree")
@@ -48,7 +60,11 @@ async def reviewer(state: AgentState, runtime: Runtime[AgentContext]) -> AgentSt
         verdict = ReviewVerdict(outcome="revise", issues=issues)
     else:
         payload = model_payload(state, claim, evidence)
-        if isinstance(draft, PacketDraft) and context.prior_coverage:
+        if (
+            isinstance(draft, PacketDraft)
+            and context.prior_coverage
+            and not (payload["requested_edits"] or payload.get("current_incident_statement"))
+        ):
             payload["previous_reviewed_coverage"] = context.prior_coverage
         payload["draft"] = draft.model_dump(mode="json")
         payload["template"] = context.template.model_dump(mode="json")

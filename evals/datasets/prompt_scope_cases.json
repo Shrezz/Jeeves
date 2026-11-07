@@ -1,4 +1,5 @@
 [
+  {"text": "It was windblown debris during a windstorm.", "followup": true, "allowed": true},
   {"text": "How's the weather?", "allowed": false},
   {"text": "What is the weather today?", "allowed": false},
   {"text": "What is the weather forecast for my insurance claim?", "allowed": false},

@@ -251,7 +251,7 @@ export default function ReviewPackagePage() {
   const listFailed = claimsQuery.isError && (!claimsQuery.data || claimsQuery.data.length === 0);
 
   useEffect(() => {
-    document.title = 'Review Claim — Claimwise';
+    document.title = 'Review Claim — Jeeves';
   }, []);
 
   return (
@@ -309,7 +309,7 @@ export default function ReviewPackagePage() {
             <Panel title="Reviewer result"><EmptyPanel>No reviewer assessment is stored.</EmptyPanel></Panel>
             <Panel title="Missing fields"><EmptyPanel>No missing-field assessment is stored.</EmptyPanel></Panel>
             <Panel title="Your Comments"><Field id="empty-review-comments" label="Your comments" hint="Choose a saved claim before adding comments."><textarea id="empty-review-comments" rows={3} className={cx(inputCls, 'resize-none opacity-80')} disabled value="" placeholder="No claim selected." /></Field></Panel>
-            <Notice tone="info" title="Saved information, not a prepared package">Claimwise has no saved claims in this account yet. This view does not generate a package or submit anything to your insurer.</Notice>
+            <Notice tone="info" title="Saved information, not a prepared package">Jeeves has no saved claims in this account yet. This view does not generate a package or submit anything to your insurer.</Notice>
             <div className="space-y-3"><div className="flex flex-wrap gap-2"><Btn variant="outline" disabled aria-disabled="true">Edit</Btn><Btn variant="ghost" disabled aria-disabled="true">Resolve without filing</Btn><Btn className="ml-auto" disabled data-testid="button-submit-claim"><ClipboardCheck className="h-4 w-4" aria-hidden /> Submit Your Claim</Btn></div><p className="text-xs text-muted-foreground">Submission is available after a saved claim’s review data loads successfully.</p><Link href="/workspace/claim" data-testid="link-start-claim" className="inline-flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"><FileText className="h-4 w-4" aria-hidden /> Start a claim</Link></div>
           </div>
         </div>

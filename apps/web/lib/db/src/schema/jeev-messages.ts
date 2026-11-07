@@ -1,12 +1,16 @@
-import { index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { jeevConversationsTable } from "./jeev-conversations";
+import { policiesTable } from "./policies";
 
 export const jeevMessagesTable = pgTable("jeev_messages", {
   id: uuid("id").primaryKey(),
   conversationId: uuid("conversation_id").notNull().references(() => jeevConversationsTable.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
+  policyId: uuid("policy_id").references(() => policiesTable.id),
+  route: text("route", { enum: ["answer_claim", "file_claim", "save_claim_status", "clarify"] }),
+  sources: jsonb("sources").$type<{chunkId: string; page: number; section: string; excerpt: string}[]>().notNull().default([]),
   reply: text("reply"),
   replyState: text("reply_state", { enum: ["pending", "ready", "error"] }).notNull().default("pending"),
   leaseId: uuid("lease_id").notNull(),

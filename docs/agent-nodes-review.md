@@ -37,6 +37,11 @@ the provider and model names can differ without changing node code.
   the evidence. This is not a general insurance payout calculator.
 - Coverage and packet review check citation existence before calling the model. Status
   review is separate and does not fetch policy evidence.
+- For packets, the reported cause must use wording from the homeowner’s account or confirmed
+  incident fields. The reviewer first compares the factual fields and narrative with those
+  sources, without seeing policy passages or previous AI answers. An unsupported detail goes
+  back for revision. A separate coverage check can discuss a peril as a policy condition
+  without asserting that it occurred.
 - Coverage/packet reviewers request at most one supplementary policy search when semantic
   review identifies an evidence gap. Reused evidence still receives a fresh semantic review.
 - Review results are `pass`, `revise`, or `needs_information`. A first revision requests
@@ -47,6 +52,9 @@ the provider and model names can differ without changing node code.
   `user_reported_*`; approval of an app action is a separate workflow phase.
 - A human edit clears review and requests regeneration. A resumed decision must match
   the artifact version, and the claim's database version must still match the snapshot.
+  Packet revisions carry the latest homeowner correction separately from earlier notes.
+  Before returning a revised packet, the reviewer checks that its facts, coverage
+  explanation, and open questions consistently reflect that correction.
 - `approved` means approved for a future backend action, **not saved, exported, or filed**.
 
 The frozen Pydantic objects validate field shapes, amounts, and allowed statuses. They do

@@ -29,6 +29,11 @@ class Migration:
     checksum: str
 
 
+# Each branch shipped an independent 0007 before integration. Keep the original
+# filenames and checksums: existing databases may already have either one.
+_UI_0007 = {"0007_dashboard_policy_evidence.sql", "0007_pending_repair_status.sql"}
+
+
 def load_migrations(directory: str | Path = DEFAULT_DIRECTORY) -> list[Migration]:
     directory = Path(directory)
     if not directory.is_dir():
@@ -37,12 +42,12 @@ def load_migrations(directory: str | Path = DEFAULT_DIRECTORY) -> list[Migration
     if not paths:
         raise MigrationError(f"No SQL migrations found in {directory}; refusing a false success")
     result: list[Migration] = []
-    versions: set[str] = set()
+    versions: dict[str, str] = {}
     for path in paths:
         match = re.fullmatch(r"(\d{4})_[a-z0-9_]+\.sql", path.name)
-        if not match or match[1] in versions:
+        if not match or (match[1] in versions and {path.name, versions[match[1]]} != _UI_0007):
             raise MigrationError(f"Invalid or duplicate migration number: {path.name}")
-        versions.add(match[1])
+        versions[match[1]] = path.name
         # Canonical LF makes checksums stable on Windows and Unix checkouts.
         content = path.read_text(encoding="utf-8").replace("\r\n", "\n")
         if not content.strip():
@@ -56,6 +61,10 @@ def pending_migrations(migrations: Sequence[Migration], applied: Mapping[str, st
     unknown = set(applied) - set(names)
     if unknown:
         raise MigrationError("Applied migration missing from checkout: " + ", ".join(sorted(unknown)))
+    # These two unrelated migrations commute. Only their relative order may differ.
+    if _UI_0007 <= set(names):
+        pair_start = names.index(min(_UI_0007))
+        names[pair_start:pair_start+2] = sorted(_UI_0007, key=lambda name: (name not in applied, name))
     if set(applied) != set(names[:len(applied)]):
         raise MigrationError("Migration history is not a contiguous prefix; refusing out-of-order apply")
     for migration in migrations:

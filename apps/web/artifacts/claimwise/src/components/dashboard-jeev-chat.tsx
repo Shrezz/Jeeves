@@ -17,8 +17,8 @@ export function DashboardJeevChat() {
         <div className="flex min-w-0 flex-1 gap-3">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-primary"><MessageSquareText className="h-5 w-5" aria-hidden /></span>
           <div>
-            <h2 id="chat-heading" className="font-display text-xl">Chat with Jeev</h2>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">Ask questions and talk things through. Chatting does not create or submit a claim.</p>
+            <h2 id="chat-heading" className="font-display text-xl">Chat with Jeeves</h2>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">Ask what your policy covers, prepare a claim, or update an existing one. You can check coverage without opening a claim.</p>
           </div>
         </div>
         <Btn onClick={() => open(crypto.randomUUID(), false)} data-testid="button-start-dashboard-chat" aria-expanded={visible} aria-controls={active ? 'dashboard-jeev-chat' : undefined}>Start a Chat</Btn>
@@ -41,7 +41,7 @@ export function DashboardJeevChat() {
                 </article>
               ))}
             </div>
-          ) : !visible && <p data-testid="empty-chat" className="rounded-xl border border-dashed border-input bg-background p-4 text-sm leading-6 text-muted-foreground">Start a conversation with Jeev. Your messages and replies are private and saved separately from claims.</p>}
+          ) : !visible && <p data-testid="empty-chat" className="rounded-xl border border-dashed border-input bg-background p-4 text-sm leading-6 text-muted-foreground">Start a conversation with Jeeves. Your messages and replies are private and saved separately from claims.</p>}
       </div>
     </section>
   );

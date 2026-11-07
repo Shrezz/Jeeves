@@ -16,8 +16,10 @@ from app.observability.tracing import capture_synthetic_content, observation, sa
 from app.schemas.agents import (
     ActionResult,
     ClaimSnapshot,
+    CorrectionAudit,
     CoverageDraft,
     EvidencePlan,
+    IncidentFactReview,
     IncidentFacts,
     PacketDraft,
     ReviewVerdict,
@@ -230,6 +232,10 @@ class FixtureModel:
                 w in lower and w not in prior for w in ("wear", "flood", "earthquake", "fire")
             )
             return EvidencePlan(reuse=reuse, query=None if reuse else message)
+        if output_type is IncidentFactReview:
+            return IncidentFactReview(unsupported=[])
+        if output_type is CorrectionAudit:
+            return CorrectionAudit(comparison="Synthetic fixture correction applied.", result="consistent")
         if output_type is ReviewVerdict:
             return ReviewVerdict(outcome="pass")
         if output_type is StatusDraft:

@@ -8,14 +8,14 @@ const content = {
   review: {
     title: 'Review Claim',
     eyebrow: 'Policy review',
-    description: 'There is no review package in your account. Claimwise does not currently create or store claim review packages.',
+    description: 'There is no review package in your account. Jeeves does not currently create or store claim review packages.',
     detail: 'When this workflow is available, this page will show real information saved to your account. Nothing has been reviewed or prepared.',
     Icon: ClipboardList,
   },
   status: {
     title: 'Status Update',
     eyebrow: 'Claim status',
-    description: 'There is no status history in your account. Claimwise does not currently track claim status updates.',
+    description: 'There is no status history in your account. Jeeves does not currently track claim status updates.',
     detail: 'No claim activity is being tracked here. This space will only show status history if that feature becomes available and real records exist.',
     Icon: MessageSquareText,
   },
@@ -26,7 +26,7 @@ export default function WorkspaceEmptyPage({ kind }: { kind: EmptyKind }) {
   const Icon = page.Icon;
 
   useEffect(() => {
-    document.title = `${page.title} — Claimwise`;
+    document.title = `${page.title} — Jeeves`;
   }, [page.title]);
 
   return (

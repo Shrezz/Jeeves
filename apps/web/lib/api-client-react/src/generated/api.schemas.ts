@@ -411,6 +411,16 @@ export interface JeevConversation {
   updatedAt: string;
 }
 
+export type JeevMessageRoute = typeof JeevMessageRoute[keyof typeof JeevMessageRoute];
+
+
+export const JeevMessageRoute = {
+  answer_claim: 'answer_claim',
+  file_claim: 'file_claim',
+  save_claim_status: 'save_claim_status',
+  clarify: 'clarify',
+} as const;
+
 export type JeevMessageReplyState = typeof JeevMessageReplyState[keyof typeof JeevMessageReplyState];
 
 
@@ -423,6 +433,10 @@ export const JeevMessageReplyState = {
 export interface JeevMessage {
   id: string;
   content: string;
+  /** @nullable */
+  policyId: string | null;
+  route?: JeevMessageRoute;
+  sources: PolicyPassage[];
   /** @nullable */
   reply: string | null;
   replyState: JeevMessageReplyState;
@@ -437,6 +451,8 @@ export interface JeevConversationDetail {
 
 export interface JeevMessageInput {
   messageId: string;
+  /** @nullable */
+  policyId?: string | null;
   /**
      * @minLength 1
      * @maxLength 12000
