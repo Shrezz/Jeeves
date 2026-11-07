@@ -11,6 +11,47 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /jeev/conversations:
+    get:
+      operationId: listJeevConversations
+      responses:
+        "200":
+          description: The user's private conversations, separate from claims
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/JeevConversation" }
+  /jeev/conversations/{id}:
+    get:
+      operationId: getJeevConversation
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+      responses:
+        "200":
+          description: Private conversation history
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JeevConversationDetail" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /jeev/conversations/{id}/messages:
+    post:
+      operationId: sendJeevMessage
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/JeevMessageInput" }
+      responses:
+        "200":
+          description: Saved user message and Jeev reply or reply-processing state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JeevMessage" }
+        "400": { $ref: "#/components/responses/InvalidInput" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /claims:
     get:
       operationId: listClaims
@@ -48,6 +89,54 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ClaimWorkspace" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /claims/{id}/review:
+    get:
+      operationId: getClaimReview
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+      responses:
+        "200":
+          description: Owned claim review fields loaded from saved records
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClaimReview" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /claims/{id}/review/comments:
+    put:
+      operationId: saveClaimReviewComments
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClaimReviewCommentsInput" }
+      responses:
+        "200":
+          description: Comments saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClaimReview" }
+        "400": { $ref: "#/components/responses/InvalidInput" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /claims/{id}/submit:
+    post:
+      operationId: submitClaimReview
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClaimSubmissionInput" }
+      responses:
+        "200":
+          description: Review and comments saved as submitted in Claimwise, not sent to an insurer
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClaimReview" }
+        "400": { $ref: "#/components/responses/InvalidInput" }
         "404": { $ref: "#/components/responses/NotFound" }
   /claims/{id}/messages:
     post:
@@ -265,7 +354,7 @@ components:
   schemas:
     ClaimStatus:
       type: string
-      enum: [Draft, Gathering evidence, Preparation requested, Package prepared, Filed by me with insurer, Insurer decision received, Resolved without filing]
+      enum: [Draft, Gathering evidence, Preparation requested, Package prepared, Submitted in Claimwise, Filed by me with insurer, Insurer decision received, Resolved without filing]
     ClaimInput:
       type: object
       required: [id, title]
@@ -366,6 +455,56 @@ components:
         evidence:
           type: array
           items: { $ref: "#/components/schemas/ClaimEvidence" }
+    ClaimReview:
+      type: object
+      required: [workspace, incidentSummary, expenses, citedClauses, reviewerResult, missingFields, comments, version, sourceUpdatedAt, submittedAt]
+      properties:
+        workspace: { $ref: "#/components/schemas/ClaimWorkspace" }
+        incidentSummary:
+          type: array
+          items: { $ref: "#/components/schemas/ReviewIncident" }
+        expenses:
+          type: array
+          items: { $ref: "#/components/schemas/ReviewExpense" }
+        citedClauses:
+          type: array
+          items: { type: string }
+        reviewerResult: { type: string }
+        missingFields:
+          type: array
+          items: { type: string }
+        comments: { type: string }
+        version: { type: integer, minimum: 0 }
+        sourceUpdatedAt: { type: string, format: date-time }
+        submittedAt: { type: ["string", "null"] }
+    ReviewIncident:
+      type: object
+      required: [id, content, createdAt]
+      properties:
+        id: { type: string }
+        content: { type: string }
+        createdAt: { type: string }
+    ReviewExpense:
+      type: object
+      required: [id, content, expense, createdAt]
+      properties:
+        id: { type: string }
+        content: { type: string }
+        expense: { type: number }
+        createdAt: { type: string }
+    ClaimReviewCommentsInput:
+      type: object
+      required: [comments, version]
+      properties:
+        comments: { type: string, maxLength: 12000 }
+        version: { type: integer, minimum: 0 }
+    ClaimSubmissionInput:
+      type: object
+      required: [comments, version, sourceUpdatedAt]
+      properties:
+        comments: { type: string, maxLength: 12000 }
+        version: { type: integer, minimum: 0 }
+        sourceUpdatedAt: { type: string, format: date-time }
     ApiError:
       type: object
       required: [error]
@@ -401,6 +540,37 @@ components:
         status: { type: string, enum: [saved] }
         createdAt: { type: string }
         documentUrl: { type: string }
+    JeevConversation:
+      type: object
+      required: [id, title, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        updatedAt: { type: string }
+    JeevConversationDetail:
+      type: object
+      required: [conversation, messages]
+      properties:
+        conversation: { $ref: "#/components/schemas/JeevConversation" }
+        messages:
+          type: array
+          items: { $ref: "#/components/schemas/JeevMessage" }
+    JeevMessageInput:
+      type: object
+      required: [messageId, content]
+      properties:
+        messageId: { type: string, format: uuid }
+        content: { type: string, minLength: 1, maxLength: 12000 }
+    JeevMessage:
+      type: object
+      required: [id, content, reply, replyState, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        content: { type: string }
+        reply: { type: ["string", "null"] }
+        replyState: { type: string, enum: [pending, ready, error] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
     HealthStatus:
       type: object
       properties:

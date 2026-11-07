@@ -13,6 +13,7 @@ export const ClaimStatus = {
   Gathering_evidence: 'Gathering evidence',
   Preparation_requested: 'Preparation requested',
   Package_prepared: 'Package prepared',
+  Submitted_in_Claimwise: 'Submitted in Claimwise',
   Filed_by_me_with_insurer: 'Filed by me with insurer',
   Insurer_decision_received: 'Insurer decision received',
   Resolved_without_filing: 'Resolved without filing',
@@ -187,6 +188,49 @@ export interface ClaimWorkspace {
   evidence: ClaimEvidence[];
 }
 
+export interface ReviewIncident {
+  id: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface ReviewExpense {
+  id: string;
+  content: string;
+  expense: number;
+  createdAt: string;
+}
+
+export interface ClaimReview {
+  workspace: ClaimWorkspace;
+  incidentSummary: ReviewIncident[];
+  expenses: ReviewExpense[];
+  citedClauses: string[];
+  reviewerResult: string;
+  missingFields: string[];
+  comments: string;
+  /** @minimum 0 */
+  version: number;
+  sourceUpdatedAt: string;
+  /** @nullable */
+  submittedAt: string | null;
+}
+
+export interface ClaimReviewCommentsInput {
+  /** @maxLength 12000 */
+  comments: string;
+  /** @minimum 0 */
+  version: number;
+}
+
+export interface ClaimSubmissionInput {
+  /** @maxLength 12000 */
+  comments: string;
+  /** @minimum 0 */
+  version: number;
+  sourceUpdatedAt: string;
+}
+
 export interface ApiError {
   error: string;
 }
@@ -222,6 +266,45 @@ export interface PolicyDetailsInput {
 export interface PolicyUpload {
   id: string;
   uploadURL: string;
+}
+
+export interface JeevConversation {
+  id: string;
+  title: string;
+  updatedAt: string;
+}
+
+export type JeevMessageReplyState = typeof JeevMessageReplyState[keyof typeof JeevMessageReplyState];
+
+
+export const JeevMessageReplyState = {
+  pending: 'pending',
+  ready: 'ready',
+  error: 'error',
+} as const;
+
+export interface JeevMessage {
+  id: string;
+  content: string;
+  /** @nullable */
+  reply: string | null;
+  replyState: JeevMessageReplyState;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JeevConversationDetail {
+  conversation: JeevConversation;
+  messages: JeevMessage[];
+}
+
+export interface JeevMessageInput {
+  messageId: string;
+  /**
+     * @minLength 1
+     * @maxLength 12000
+     */
+  content: string;
 }
 
 export interface HealthStatus {

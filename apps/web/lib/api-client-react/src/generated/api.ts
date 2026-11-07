@@ -32,10 +32,17 @@ import type {
   ClaimInput,
   ClaimMessage,
   ClaimMessageInput,
+  ClaimReview,
+  ClaimReviewCommentsInput,
+  ClaimSubmissionInput,
   ClaimWorkspace,
   EvidenceUploadInput,
   HealthStatus,
   InvalidInputResponse,
+  JeevConversation,
+  JeevConversationDetail,
+  JeevMessage,
+  JeevMessageInput,
   NotFoundResponse,
   Policy,
   PolicyDetailsInput,
@@ -70,6 +77,279 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getListJeevConversationsUrl = () => {
+
+
+
+
+  return `/api/jeev/conversations`
+}
+
+export const listJeevConversations = async ( options?: Parameters<typeof customFetch>[1]): Promise<JeevConversation[]> => {
+
+  return customFetch<JeevConversation[]>(getListJeevConversationsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListJeevConversationsQueryKey = () => {
+    return [
+    `/api/jeev/conversations`
+    ] as const;
+    }
+
+
+export const getListJeevConversationsQueryOptions = <TData = Awaited<ReturnType<typeof listJeevConversations>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listJeevConversations>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListJeevConversationsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listJeevConversations>>> = ({ signal }) => listJeevConversations({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listJeevConversations>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListJeevConversationsQueryResult = NonNullable<Awaited<ReturnType<typeof listJeevConversations>>>
+export type ListJeevConversationsQueryError = ErrorType<unknown>
+
+
+export function useListJeevConversations<TData = Awaited<ReturnType<typeof listJeevConversations>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listJeevConversations>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listJeevConversations>>,
+          TError,
+          Awaited<ReturnType<typeof listJeevConversations>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListJeevConversations<TData = Awaited<ReturnType<typeof listJeevConversations>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listJeevConversations>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listJeevConversations>>,
+          TError,
+          Awaited<ReturnType<typeof listJeevConversations>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListJeevConversations<TData = Awaited<ReturnType<typeof listJeevConversations>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listJeevConversations>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useListJeevConversations<TData = Awaited<ReturnType<typeof listJeevConversations>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listJeevConversations>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListJeevConversationsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetJeevConversationUrl = (id: string,) => {
+
+
+
+
+  return `/api/jeev/conversations/${id}`
+}
+
+export const getJeevConversation = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<JeevConversationDetail> => {
+
+  return customFetch<JeevConversationDetail>(getGetJeevConversationUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetJeevConversationQueryKey = (id: string,) => {
+    return [
+    `/api/jeev/conversations/${id}`
+    ] as const;
+    }
+
+
+export const getGetJeevConversationQueryOptions = <TData = Awaited<ReturnType<typeof getJeevConversation>>, TError = ErrorType<NotFoundResponse>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getJeevConversation>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetJeevConversationQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getJeevConversation>>> = ({ signal }) => getJeevConversation(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getJeevConversation>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetJeevConversationQueryResult = NonNullable<Awaited<ReturnType<typeof getJeevConversation>>>
+export type GetJeevConversationQueryError = ErrorType<NotFoundResponse>
+
+
+export function useGetJeevConversation<TData = Awaited<ReturnType<typeof getJeevConversation>>, TError = ErrorType<NotFoundResponse>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getJeevConversation>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getJeevConversation>>,
+          TError,
+          Awaited<ReturnType<typeof getJeevConversation>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetJeevConversation<TData = Awaited<ReturnType<typeof getJeevConversation>>, TError = ErrorType<NotFoundResponse>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getJeevConversation>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getJeevConversation>>,
+          TError,
+          Awaited<ReturnType<typeof getJeevConversation>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetJeevConversation<TData = Awaited<ReturnType<typeof getJeevConversation>>, TError = ErrorType<NotFoundResponse>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getJeevConversation>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetJeevConversation<TData = Awaited<ReturnType<typeof getJeevConversation>>, TError = ErrorType<NotFoundResponse>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getJeevConversation>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetJeevConversationQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSendJeevMessageUrl = (id: string,) => {
+
+
+
+
+  return `/api/jeev/conversations/${id}/messages`
+}
+
+export const sendJeevMessage = async (id: string,
+    jeevMessageInput: JeevMessageInput, options?: Parameters<typeof customFetch>[1]): Promise<JeevMessage> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<JeevMessage>(getSendJeevMessageUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(jeevMessageInput)
+  }
+);}
+
+
+
+
+
+export const getSendJeevMessageMutationKey = () => ['sendJeevMessage'] as const;
+
+export const getSendJeevMessageMutationOptions = <TError = ErrorType<InvalidInputResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendJeevMessage>>, TError,SendJeevMessageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendJeevMessage>>, TError,SendJeevMessageMutationVariables, TContext> => {
+
+const mutationKey = getSendJeevMessageMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendJeevMessage>>, SendJeevMessageMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  sendJeevMessage(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendJeevMessageMutationResult = NonNullable<Awaited<ReturnType<typeof sendJeevMessage>>>
+    export type SendJeevMessageMutationBody = BodyType<JeevMessageInput>
+    export type SendJeevMessageMutationError = ErrorType<InvalidInputResponse | NotFoundResponse>
+    export type SendJeevMessageMutationVariables = {id: string;data: BodyType<JeevMessageInput>}
+
+    export const useSendJeevMessage = <TError = ErrorType<InvalidInputResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendJeevMessage>>, TError,SendJeevMessageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof sendJeevMessage>>,
+        TError,
+        SendJeevMessageMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSendJeevMessageMutationOptions(options), queryClient);
+    }
 
 export const getListClaimsUrl = () => {
 
@@ -342,6 +622,267 @@ export function useGetClaim<TData = Awaited<ReturnType<typeof getClaim>>, TError
 
 
 
+
+export const getGetClaimReviewUrl = (id: string,) => {
+
+
+
+
+  return `/api/claims/${id}/review`
+}
+
+export const getClaimReview = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<ClaimReview> => {
+
+  return customFetch<ClaimReview>(getGetClaimReviewUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClaimReviewQueryKey = (id: string,) => {
+    return [
+    `/api/claims/${id}/review`
+    ] as const;
+    }
+
+
+export const getGetClaimReviewQueryOptions = <TData = Awaited<ReturnType<typeof getClaimReview>>, TError = ErrorType<NotFoundResponse>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getClaimReview>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClaimReviewQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClaimReview>>> = ({ signal }) => getClaimReview(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClaimReview>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetClaimReviewQueryResult = NonNullable<Awaited<ReturnType<typeof getClaimReview>>>
+export type GetClaimReviewQueryError = ErrorType<NotFoundResponse>
+
+
+export function useGetClaimReview<TData = Awaited<ReturnType<typeof getClaimReview>>, TError = ErrorType<NotFoundResponse>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getClaimReview>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getClaimReview>>,
+          TError,
+          Awaited<ReturnType<typeof getClaimReview>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetClaimReview<TData = Awaited<ReturnType<typeof getClaimReview>>, TError = ErrorType<NotFoundResponse>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getClaimReview>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getClaimReview>>,
+          TError,
+          Awaited<ReturnType<typeof getClaimReview>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetClaimReview<TData = Awaited<ReturnType<typeof getClaimReview>>, TError = ErrorType<NotFoundResponse>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getClaimReview>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetClaimReview<TData = Awaited<ReturnType<typeof getClaimReview>>, TError = ErrorType<NotFoundResponse>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getClaimReview>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetClaimReviewQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveClaimReviewCommentsUrl = (id: string,) => {
+
+
+
+
+  return `/api/claims/${id}/review/comments`
+}
+
+export const saveClaimReviewComments = async (id: string,
+    claimReviewCommentsInput: ClaimReviewCommentsInput, options?: Parameters<typeof customFetch>[1]): Promise<ClaimReview> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ClaimReview>(getSaveClaimReviewCommentsUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(claimReviewCommentsInput)
+  }
+);}
+
+
+
+
+
+export const getSaveClaimReviewCommentsMutationKey = () => ['saveClaimReviewComments'] as const;
+
+export const getSaveClaimReviewCommentsMutationOptions = <TError = ErrorType<InvalidInputResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveClaimReviewComments>>, TError,SaveClaimReviewCommentsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveClaimReviewComments>>, TError,SaveClaimReviewCommentsMutationVariables, TContext> => {
+
+const mutationKey = getSaveClaimReviewCommentsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveClaimReviewComments>>, SaveClaimReviewCommentsMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  saveClaimReviewComments(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveClaimReviewCommentsMutationResult = NonNullable<Awaited<ReturnType<typeof saveClaimReviewComments>>>
+    export type SaveClaimReviewCommentsMutationBody = BodyType<ClaimReviewCommentsInput>
+    export type SaveClaimReviewCommentsMutationError = ErrorType<InvalidInputResponse | NotFoundResponse>
+    export type SaveClaimReviewCommentsMutationVariables = {id: string;data: BodyType<ClaimReviewCommentsInput>}
+
+    export const useSaveClaimReviewComments = <TError = ErrorType<InvalidInputResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveClaimReviewComments>>, TError,SaveClaimReviewCommentsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof saveClaimReviewComments>>,
+        TError,
+        SaveClaimReviewCommentsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSaveClaimReviewCommentsMutationOptions(options), queryClient);
+    }
+
+export const getSubmitClaimReviewUrl = (id: string,) => {
+
+
+
+
+  return `/api/claims/${id}/submit`
+}
+
+export const submitClaimReview = async (id: string,
+    claimSubmissionInput: ClaimSubmissionInput, options?: Parameters<typeof customFetch>[1]): Promise<ClaimReview> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ClaimReview>(getSubmitClaimReviewUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(claimSubmissionInput)
+  }
+);}
+
+
+
+
+
+export const getSubmitClaimReviewMutationKey = () => ['submitClaimReview'] as const;
+
+export const getSubmitClaimReviewMutationOptions = <TError = ErrorType<InvalidInputResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitClaimReview>>, TError,SubmitClaimReviewMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitClaimReview>>, TError,SubmitClaimReviewMutationVariables, TContext> => {
+
+const mutationKey = getSubmitClaimReviewMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitClaimReview>>, SubmitClaimReviewMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  submitClaimReview(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitClaimReviewMutationResult = NonNullable<Awaited<ReturnType<typeof submitClaimReview>>>
+    export type SubmitClaimReviewMutationBody = BodyType<ClaimSubmissionInput>
+    export type SubmitClaimReviewMutationError = ErrorType<InvalidInputResponse | NotFoundResponse>
+    export type SubmitClaimReviewMutationVariables = {id: string;data: BodyType<ClaimSubmissionInput>}
+
+    export const useSubmitClaimReview = <TError = ErrorType<InvalidInputResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitClaimReview>>, TError,SubmitClaimReviewMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof submitClaimReview>>,
+        TError,
+        SubmitClaimReviewMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSubmitClaimReviewMutationOptions(options), queryClient);
+    }
 
 export const getSaveClaimMessageUrl = (id: string,) => {
 

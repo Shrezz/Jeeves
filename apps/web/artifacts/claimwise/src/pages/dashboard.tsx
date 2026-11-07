@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'wouter';
 import { getListClaimsQueryKey, getListPoliciesQueryKey, useListClaims, useListPolicies } from '@workspace/api-client-react';
 import type { Policy } from '@workspace/api-client-react';
 import { ArrowDownToLine, FileText, FolderOpen, LockKeyhole, UploadCloud } from 'lucide-react';
 import { Btn, Panel } from '@/components/cw';
+import { DashboardClaimSections } from '@/components/dashboard-claim-sections';
 import type { Go } from '@/pages/screens-a';
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -166,6 +166,7 @@ export default function DashboardScreen({ go }: { go: Go }) {
   );
   const [selectedId, setSelectedId] = useState<string>();
   const selectedPolicy = policies.find((policy) => policy.id === selectedId) ?? policies[0];
+  const hasUploadedPolicy = policies.some((policy) => policy.status === 'saved');
   const retry = () => { void refetch(); };
 
   return (
@@ -176,86 +177,29 @@ export default function DashboardScreen({ go }: { go: Go }) {
           <h1 data-testid="text-dashboard-title" className="mt-3 font-display text-4xl sm:text-5xl">Dashboard</h1>
           <p className="mt-2 max-w-xl leading-6 text-muted-foreground">Your policy documents and claim preparation, kept in one dependable place.</p>
         </div>
-        <Btn data-testid="button-add-policy" onClick={() => go('upload')} className="min-h-11 self-start sm:self-auto"><UploadCloud className="h-4 w-4" aria-hidden /> Upload Policy</Btn>
+        <div className="self-start sm:self-auto">
+          <Btn
+            data-testid="button-add-policy"
+            disabled={hasUploadedPolicy}
+            aria-describedby={hasUploadedPolicy ? 'policy-upload-complete' : undefined}
+            onClick={() => go('upload')}
+            className="min-h-11 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:opacity-100"
+          >
+            <UploadCloud className="h-4 w-4" aria-hidden /> Upload Policy
+          </Btn>
+          {hasUploadedPolicy && (
+            <p id="policy-upload-complete" className="mt-2 text-xs text-muted-foreground">Policy successfully uploaded</p>
+          )}
+        </div>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
-        <div className="space-y-7">
-          <section aria-labelledby="claims-heading">
-            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-              <h2 id="claims-heading" className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Your claims · workflow status</h2>
-              <Link href="/workspace/claim" data-testid="button-file-claim" className="inline-flex min-h-9 items-center rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">File Your Claim</Link>
-            </div>
-            {claimsQuery.isLoading ? (
-              <div aria-busy="true" aria-label="Loading your claims" className="space-y-3">{[0, 1].map((item) => <div key={item} className="h-24 animate-pulse rounded-2xl border border-card-border bg-card" />)}</div>
-            ) : claimsQuery.isError ? (
-              <div role="alert" className="rounded-2xl border border-destructive/30 bg-destructive/5 p-5">
-                <p className="font-semibold">Your claims couldn’t load.</p>
-                <p className="mt-1 text-sm text-muted-foreground">No sample claim records are shown in place of your information.</p>
-                <Btn variant="outline" className="mt-4" data-testid="button-retry-claims" onClick={() => { void claimsQuery.refetch(); }}>Try again</Btn>
-              </div>
-            ) : claimsQuery.data?.length ? (
-              <div className="space-y-3">
-                {claimsQuery.data.map((claim) => (
-                  <article key={claim.id} data-testid={`card-claim-${claim.id}`} className="flex flex-col gap-4 rounded-2xl border border-card-border bg-card p-4 transition-colors hover:border-primary/40 sm:flex-row sm:items-center sm:p-5">
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-primary"><FolderOpen className="h-5 w-5" aria-hidden /></span>
-                    <div className="min-w-0 flex-1">
-                      <h3 data-testid={`text-claim-title-${claim.id}`} className="truncate font-semibold">{claim.title}</h3>
-                      <p className="mt-1 text-sm text-muted-foreground">{claim.status} <span aria-hidden>·</span> {new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(claim.totalExpenses)} recorded expenses</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Updated {formatDate(claim.updatedAt)}</p>
-                    </div>
-                    <Link href={`/workspace/claim/${encodeURIComponent(claim.id)}`} data-testid={`link-open-claim-${claim.id}`} className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-input bg-background px-3 text-sm font-semibold transition-colors hover:border-primary hover:text-primary">Open claim</Link>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <div data-testid="empty-claims-workflow" className="rounded-3xl border border-dashed border-[hsl(178_25%_68%)] bg-[hsl(176_30%_94%)] p-5 sm:p-7">
-                <span className="grid h-11 w-11 place-items-center rounded-xl bg-card text-primary"><FolderOpen className="h-5 w-5" aria-hidden /></span>
-                <h3 className="mt-4 font-display text-2xl">Your claim records start here.</h3>
-                <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">Create a private record to collect notes, evidence, expenses, and status updates in one place.</p>
-                <p className="mt-4 text-xs leading-5 text-muted-foreground">Claimwise does not decide coverage or send a claim to your insurer.</p>
-              </div>
-            )}
-          </section>
-
-          <section aria-labelledby="saved-documents-heading">
-            <div className="mb-3 flex items-baseline justify-between gap-3">
-              <h2 id="saved-documents-heading" className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Saved policies</h2>
-              {!isLoading && !isError && <span data-testid="text-policy-count" className="text-sm text-muted-foreground">{policies.length} {policies.length === 1 ? 'document' : 'documents'}</span>}
-            </div>
-            {isLoading ? (
-              <div aria-busy="true" aria-label="Loading saved policies" className="space-y-3">
-                {[0, 1].map((item) => <div key={item} className="h-24 animate-pulse rounded-2xl border border-card-border bg-card" />)}
-              </div>
-            ) : isError ? (
-              <div role="alert" className="rounded-2xl border border-destructive/30 bg-destructive/5 p-5">
-                <p className="font-semibold">Your saved policies couldn’t load.</p>
-                <p className="mt-1 text-sm text-muted-foreground">We won’t show sample documents in place of your records.</p>
-                <Btn variant="outline" className="mt-4" data-testid="button-retry-saved-policies" onClick={retry}>Try again</Btn>
-              </div>
-            ) : policies.length ? (
-              <div className="space-y-3">
-                {policies.map((policy) => (
-                  <article key={policy.id} data-testid={`card-policy-${policy.id}`} className="flex flex-col gap-4 rounded-2xl border border-card-border bg-card p-4 transition-colors hover:border-primary/40 sm:flex-row sm:items-center sm:p-5">
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-primary"><FileText className="h-5 w-5" aria-hidden /></span>
-                    <div className="min-w-0 flex-1">
-                      <h3 data-testid={`text-saved-policy-label-${policy.id}`} className="truncate font-semibold">{policy.label}</h3>
-                      <p className="mt-1 truncate text-sm text-muted-foreground">{policy.fileName}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{formatBytes(policy.size)} <span aria-hidden>·</span> Added {formatDate(policy.createdAt)}</p>
-                    </div>
-                    <PolicyFileLink policy={policy} />
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-dashed border-[hsl(178_25%_68%)] bg-[hsl(176_30%_94%)] p-5 sm:p-6">
-                <h3 className="font-display text-xl">Your saved policies will live here.</h3>
-                <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">There are no saved policy documents in your account yet. Upload a PDF to keep the original and the details you provide.</p>
-                <Btn data-testid="button-upload-first-policy" className="mt-4" onClick={() => go('upload')}><UploadCloud className="h-4 w-4" aria-hidden /> Upload Policy</Btn>
-              </div>
-            )}
-          </section>
-        </div>
+        <DashboardClaimSections
+          claims={claimsQuery.data ?? []}
+          loading={claimsQuery.isLoading}
+          error={claimsQuery.isError}
+          onRetry={() => { void claimsQuery.refetch(); }}
+        />
 
         <aside className="space-y-4">
           <PolicySummary

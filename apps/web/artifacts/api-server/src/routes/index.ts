@@ -3,6 +3,7 @@ import healthRouter from "./health";
 import { requireAuth } from "../middlewares/requireAuth";
 import policiesRouter from "./policies";
 import claimsRouter from "./claims";
+import jeevChatRouter from "./jeev-chat";
 
 const router: IRouter = Router();
 
@@ -13,5 +14,6 @@ router.use(healthRouter);
 router.use(requireAuth);
 router.use(policiesRouter);
 router.use(claimsRouter);
+router.use(jeevChatRouter);
 
 export default router;

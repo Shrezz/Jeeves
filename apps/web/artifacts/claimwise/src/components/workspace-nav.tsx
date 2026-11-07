@@ -1,13 +1,12 @@
 import { Link } from 'wouter';
-import { ClipboardList, FileText, LayoutDashboard, MessageSquareText, UserRound, ClipboardPlus } from 'lucide-react';
+import { ClipboardList, LayoutDashboard, MessageSquareText, UserRound, ClipboardPlus } from 'lucide-react';
 import { Mark } from '@/components/cw';
 
 const destinations = [
   { href: '/workspace/account', label: 'Your Account', Icon: UserRound },
-  { href: '/workspace/upload', label: 'Upload Policy', Icon: FileText },
-  { href: '/workspace/claim', label: 'File Your Claim', Icon: ClipboardPlus },
   { href: '/workspace/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
-  { href: '/workspace/review', label: 'Review Package', Icon: ClipboardList },
+  { href: '/workspace/claim', label: 'Prepare Your Claim', Icon: ClipboardPlus },
+  { href: '/workspace/review', label: 'Review Claim', Icon: ClipboardList },
   { href: '/workspace/status', label: 'Status Update', Icon: MessageSquareText },
 ] as const;
 
