@@ -22,6 +22,7 @@ from app.agents.state import AgentState
 from app.observability.tracing import (
     flush_traces,
     observation,
+    result_fingerprint,
     synthetic_claim_capture,
     trace_session,
 )
@@ -305,7 +306,6 @@ async def execute(db, saver, request, generator, reviewer):
     return result
 
 
-
 async def main():
     url = os.environ["DATABASE_URL"]
     graph_url = make_conninfo(url, options="-c search_path=claim_graph")
@@ -342,9 +342,13 @@ async def main():
                         output={
                             "status": result["workflow"]["phase"],
                             "route": result["workflow"]["route"],
+                            "artifact_version": result["workflow"]["version"],
+                            "result_fingerprint": result_fingerprint(result),
                             "policy_source_count": len(result["sources"]),
                         }
                     )
+                    if result["workflow"]["phase"] == "blocked":
+                        span.update(level="WARNING", status_message="Draft did not pass review")
                     print(json.dumps({"ok": True}))
                 except ClaimChanged as e:
                     span.update(output={"conflict": True})
@@ -354,4 +358,6 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    from app.services.worker_runtime import run_worker
+
+    run_worker(lambda: asyncio.run(main()))

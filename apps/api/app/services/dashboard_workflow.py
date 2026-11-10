@@ -106,10 +106,16 @@ async def dashboard_models():
             headers={"Authorization": "Bearer " + os.environ["AI_INTEGRATIONS_OPENAI_API_KEY"]},
             trust_env=False,
         ) as client:
-            model = JsonSchemaModel(
-                client, "gpt-5.4-mini", max_tokens=4096, token_limit_field="max_completion_tokens"
+            yield tuple(
+                JsonSchemaModel(
+                    client,
+                    "gpt-5.4-mini",
+                    max_tokens=4096,
+                    token_limit_field="max_completion_tokens",
+                    role=role,
+                )
+                for role in ("generator", "reviewer")
             )
-            yield model, model
     else:
         async with chat_models() as models:
             yield models
@@ -117,8 +123,8 @@ async def dashboard_models():
 
 async def main():
     data = json.load(sys.stdin)
-    async with dashboard_models() as (generator, reviewer):
-        with worker_trace("dashboard-chat", data["conversationId"]) as span:
+    with worker_trace("dashboard-chat", data["conversationId"]) as span:
+        async with dashboard_models() as (generator, reviewer):
             result = await build_dashboard_graph().ainvoke(
                 {
                     "request": AgentRequest(message=data["question"]),
@@ -136,4 +142,6 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    from app.services.worker_runtime import run_worker
+
+    run_worker(lambda: asyncio.run(main()))

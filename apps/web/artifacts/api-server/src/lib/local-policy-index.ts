@@ -1,7 +1,9 @@
+import { logger } from "./logger";
 import { execFile } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { workerTracingEnv } from "./workflow-tracing";
 import { and, eq } from "drizzle-orm";
 import { SearchPolicyResponse } from "@workspace/api-zod";
 import { db, policiesTable, policyDocumentsTable, type StoredPolicy } from "@workspace/db";
@@ -17,15 +19,11 @@ function worker(request: object): Promise<unknown> {
     const child = execFile(python, ["-m", "policy_rag.local_worker"], {
       cwd: root, timeout: 180_000, killSignal: "SIGKILL", maxBuffer: 2 * 1024 * 1024,
       env: { PATH: process.env.PATH, HOME: process.env.HOME, LOCAL_RAG_DATA_DIR: process.env.LOCAL_RAG_DATA_DIR,
-        ...(process.env.LANGFUSE_TRACING_ENABLED?.toLowerCase() === "true" ? {
-          LANGFUSE_TRACING_ENABLED: process.env.LANGFUSE_TRACING_ENABLED,
-          LANGFUSE_PUBLIC_KEY: process.env.LANGFUSE_PUBLIC_KEY,
-          LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY,
-          LANGFUSE_BASE_URL: process.env.LANGFUSE_BASE_URL,
-        } : {}),
+        ...workerTracingEnv(process.env),
         POLICY_RAG_TRACE: "0", ANONYMIZED_TELEMETRY: "False", TOKENIZERS_PARALLELISM: "false" },
-    }, (error, stdout) => {
-      if (error) { reject(new Error("Local policy worker failed")); return; }
+    }, (error, stdout, stderr) => {
+      if (/telemetry_(?:export_failed|flush_(?:failed|timeout))/.test(stderr)) logger.warn({ event: "telemetry_export_failed", worker: "rag" }, "Telemetry export incomplete");
+      if (error) { logger.error({ event: "worker_failed", worker: "rag", killed: error.killed ?? false }, "Worker failed"); reject(new Error("Local policy worker failed")); return; }
       try { resolve(JSON.parse(stdout)); } catch { reject(new Error("Invalid worker response")); }
     });
     child.stdin?.on("error", () => { /* execFile reports process failures */ });
@@ -72,6 +70,7 @@ async function runIndex(policy: StoredPolicy): Promise<StoredPolicy> {
     const [ready] = await db.update(policiesTable).set({ ingestionStatus: "ready", indexedChunks: count }).where(owned).returning();
     return ready;
   } catch {
+    logger.warn({ event: "policy_ingestion_failed" }, "Policy index is unavailable; retry is safe");
     const [failed] = await db.update(policiesTable).set({ ingestionStatus: "failed", indexedChunks: 0 }).where(owned).returning();
     return failed;
   } finally {

@@ -14,19 +14,25 @@ import io
 import json
 import os
 import re
+import sys
 import unicodedata
 from dataclasses import asdict
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from uuid import NAMESPACE_URL, UUID, uuid5
+from uuid import UUID
 
 import psycopg
+from annotation_validation import validate_annotation
 from evaluators import Check
 from psycopg.rows import dict_row
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
+from score_export import provenance, publish_scores
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "apps/api"))
+from app.observability.tracing import result_fingerprint
+
 FIXTURE = ROOT / "data/fixtures/Cedar-Cove-Synthetic-Homeowners.pdf"
 DEFAULT_DATASET = ROOT / "evals/datasets/ui_dev.jsonl"
 
@@ -45,7 +51,11 @@ def source_integrity(sources: list, policy_id: str, pdf: bytes) -> bool | None:
         for source in sources:
             if not isinstance(source, dict):
                 return False
-            page, excerpt, chunk = source.get("page"), source.get("excerpt"), source.get("chunkId")
+            page, excerpt, chunk = (
+                source.get("page"),
+                source.get("excerpt"),
+                source.get("chunkId"),
+            )
             if (
                 isinstance(page, bool)
                 or not isinstance(page, int)
@@ -58,6 +68,19 @@ def source_integrity(sources: list, policy_id: str, pdf: bytes) -> bool | None:
             ):
                 return False
             page_text = pages[page - 1].extract_text() or ""
+            # The parser drops the known fictional banner/page counter between header
+            # and declarations. Ignore ONLY these exact fixture decorations, never
+            # arbitrary intervening words (which could include a coverage exclusion).
+            if pdf == FIXTURE.read_bytes():
+                decorations = {
+                    "synthetic demo only / no insurance issued",
+                    f"{page} / {len(pages)}",
+                }
+                page_text = "\n".join(
+                    line
+                    for line in page_text.splitlines()
+                    if normalized(line) not in decorations
+                )
             if not page_text.strip():
                 unknown = True
             elif normalized(excerpt) not in normalized(page_text):
@@ -76,17 +99,27 @@ def evaluate_ui(
     ready = observed.get("state") == "ready"
     sources = observed.get("sources") or []
     content = observed.get("content") or ""
-    fields = {f.get("label"): f.get("value") for f in flow.get("fields", []) if isinstance(f, dict)}
+    fields = {
+        f.get("label"): f.get("value")
+        for f in flow.get("fields", [])
+        if isinstance(f, dict)
+    }
     checks = []
 
     def equal(name, wanted, actual):
-        checks.append(Check(name, None if actual is None else actual == wanted, wanted, actual))
+        checks.append(
+            Check(name, None if actual is None else actual == wanted, wanted, actual)
+        )
 
     for key in ("route", "phase"):
         if key in expected:
             equal(key, expected[key], flow.get(key, "<missing>") if ready else None)
     if "citations_required" in expected:
-        equal("citations_present", expected["citations_required"], bool(sources) if ready else None)
+        equal(
+            "citations_present",
+            expected["citations_required"],
+            bool(sources) if ready else None,
+        )
         if ready:
             integrity = source_integrity(sources, observed["policy_id"], pdf)
             equal("citation_excerpt_matches_policy_page", True, integrity)
@@ -137,7 +170,9 @@ def evaluate_ui(
         equal("public_search_status", expected["public_search_status"], actual)
     if expected.get("human_review_required"):
         actual = (
-            bool(flow.get("phase") == "human_review" and flow.get("interruptId")) if ready else None
+            bool(flow.get("phase") == "human_review" and flow.get("interruptId"))
+            if ready
+            else None
         )
         equal("human_review_required", True, actual)
     if "conditional_payment" in expected:
@@ -146,12 +181,18 @@ def evaluate_ui(
             or fields.get("Estimated payment (conditional)")
             or fields.get("Estimated payment")
         )
-        equal("payment_displayed", True, bool(raw) if flow.get("phase") == "human_review" else None)
+        equal(
+            "payment_displayed",
+            True,
+            bool(raw) if flow.get("phase") == "human_review" else None,
+        )
         basis = fields.get("Illustration basis") or fields.get("Estimate basis")
         equal("payment_basis_displayed", True, bool(basis) if raw is not None else None)
         try:
             amount = (
-                Decimal(str(raw).replace("$", "").replace(",", "")) if raw is not None else None
+                Decimal(str(raw).replace("$", "").replace(",", ""))
+                if raw is not None
+                else None
             )
             if amount is None:
                 actual, matches = None, None
@@ -163,10 +204,17 @@ def evaluate_ui(
         except (InvalidOperation, ValueError):
             actual, matches = str(raw), False
         checks.append(
-            Check("conditional_payment_amount", matches, expected["conditional_payment"], actual)
+            Check(
+                "conditional_payment_amount",
+                matches,
+                expected["conditional_payment"],
+                actual,
+            )
         )
     if "repair_status" in expected:
-        actual = fields.get("Repair status") if flow.get("phase") == "human_review" else None
+        actual = (
+            fields.get("Repair status") if flow.get("phase") == "human_review" else None
+        )
         equal(
             "repair_status",
             expected["repair_status"],
@@ -195,14 +243,21 @@ def load_case(dataset: Path, case_id: str) -> dict:
     return matches[0]
 
 
-def load_observation(url: str, run_id: str, allowlisted_claims: set[str]) -> tuple[dict, bytes]:
+def load_observation(
+    url: str, run_id: str, allowlisted_claims: set[str]
+) -> tuple[dict, bytes]:
     """Fetch a run only from the explicit synthetic allowlist and fixture policy."""
     run = str(UUID(run_id))
     if not allowlisted_claims:
-        raise ValueError("Set JEEVES_SYNTHETIC_TRACE_CLAIM_IDS for explicitly fictional claims")
+        raise ValueError(
+            "Set JEEVES_SYNTHETIC_TRACE_CLAIM_IDS for explicitly fictional claims"
+        )
     allowed = [str(UUID(item)) for item in allowlisted_claims]
     with psycopg.connect(
-        url, autocommit=True, options="-c default_transaction_read_only=on", row_factory=dict_row
+        url,
+        autocommit=True,
+        options="-c default_transaction_read_only=on",
+        row_factory=dict_row,
     ) as db:
         row = db.execute(
             """SELECT g.claim_id::text, c.policy_id::text, g.state, g.content, g.sources,
@@ -216,75 +271,15 @@ def load_observation(url: str, run_id: str, allowlisted_claims: set[str]) -> tup
             (run, allowed),
         ).fetchone()
     if not row:
-        raise ValueError("Run not found in an allowlisted fictional claim with a policy PDF")
+        raise ValueError(
+            "Run not found in an allowlisted fictional claim with a policy PDF"
+        )
     pdf = bytes(row.pop("policy_pdf"))
     if hashlib.sha256(pdf).digest() != hashlib.sha256(FIXTURE.read_bytes()).digest():
-        raise ValueError("The selected policy is not the exact checked-in fictional fixture")
-    return row, pdf
-
-
-def publish_scores(run_id: str, case_id: str, checks: list[Check], observed: dict) -> dict:
-    if os.getenv("LANGFUSE_TRACING_ENABLED", "false").lower() != "true" or not all(
-        os.getenv(key) for key in ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY")
-    ):
-        raise ValueError("Enable Langfuse and provide both project keys to export scores")
-    from langfuse import get_client
-
-    client = get_client()
-    roots = client.api.observations.get_many(
-        session_id=run_id, name="ui-claim-workflow", limit=100, fields="basic,io"
-    ).data
-    complete = [root for root in roots if root.end_time is not None and root.start_time is not None]
-    if not complete:
-        raise ValueError("No completed Langfuse UI trace found for this run")
-    root = max(complete, key=lambda item: item.start_time)
-    try:
-        output = json.loads(root.output) if isinstance(root.output, str) else root.output
-    except (ValueError, TypeError):
-        output = None
-    flow = observed.get("workflow") or {}
-    if (
-        not isinstance(output, dict)
-        or output.get("status") != flow.get("phase")
-        or output.get("route") != flow.get("route")
-    ):
         raise ValueError(
-            "Latest trace does not match the saved workflow state; scores were not sent"
+            "The selected policy is not the exact checked-in fictional fixture"
         )
-    submitted = set()
-    for check in checks:
-        if check.passed is None:
-            continue
-        score_id = str(uuid5(NAMESPACE_URL, f"ui-eval-v1:{root.trace_id}:{case_id}:{check.name}"))
-        client.create_score(
-            trace_id=root.trace_id,
-            name="ui_eval_" + check.name,
-            value=float(check.passed),
-            data_type="BOOLEAN",
-            score_id=score_id,
-            comment="Fictional UI scenario; 1=pass, 0=fail. Semantic checks require human annotation.",
-        )
-        submitted.add(score_id)
-    unscored = sum(check.passed is None for check in checks)
-    count_id = str(uuid5(NAMESPACE_URL, f"ui-eval-v1:{root.trace_id}:{case_id}:unscored_count"))
-    client.create_score(
-        trace_id=root.trace_id,
-        name="ui_eval_unscored_count",
-        value=unscored,
-        data_type="NUMERIC",
-        score_id=count_id,
-        comment="Checks lacking a measurement or human annotation; not passes or failures.",
-    )
-    submitted.add(count_id)
-    client.flush()
-    visible = client.api.scores.get_many(trace_id=root.trace_id, limit=100).data
-    verified = submitted.issubset({score.id for score in visible})
-    return {
-        "trace_id": root.trace_id,
-        "submitted_checks": len(submitted),
-        "unscored_checks": unscored,
-        "status": "verified" if verified else "submitted_not_yet_visible",
-    }
+    return row, pdf
 
 
 def main() -> int:
@@ -292,16 +287,26 @@ def main() -> int:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--case-id", required=True)
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
-    parser.add_argument("--annotations", type=Path, help="Human labels keyed by exact run ID")
+    parser.add_argument(
+        "--annotations", type=Path, help="Human labels keyed by exact run ID"
+    )
     parser.add_argument("--output", type=Path)
     parser.add_argument(
-        "--langfuse", action="store_true", help="Attach measured scores to the latest trace"
+        "--langfuse",
+        action="store_true",
+        help="Attach measured scores to the latest trace",
     )
     parser.add_argument(
         "--fail-on-failed", action="store_true", help="Exit nonzero on a failed check"
     )
     parser.add_argument(
         "--strict", action="store_true", help="Also fail when any check is unscored"
+    )
+    parser.add_argument(
+        "--export-timeout",
+        type=float,
+        default=45,
+        help="Hard limit in seconds for the isolated Langfuse export (1–120)",
     )
     args = parser.parse_args()
     url = os.getenv("UI_EVAL_DATABASE_URL")
@@ -323,23 +328,19 @@ def main() -> int:
         labels = json.loads(args.annotations.read_text()) if args.annotations else {}
         if not isinstance(labels, dict):
             raise TypeError("Human annotations must be a JSON object keyed by run ID")
-        annotation = labels.get(str(UUID(args.run_id)))
-        if annotation is not None and (
-            not isinstance(annotation, dict)
-            or any(not isinstance(value, bool) for value in annotation.values())
-            or any(
-                key not in {"citation_support_human", "explanation_correct_human"}
-                for key in annotation
-            )
-        ):
-            raise ValueError(
-                "Human annotations must contain only supported boolean labels for the run"
-            )
+        annotation = validate_annotation(
+            labels.get(str(UUID(args.run_id))),
+            artifact_version=(observed.get("workflow") or {}).get("version"),
+            result_fingerprint=result_fingerprint(observed),
+        )
         checks = evaluate_ui(case, observed, pdf, annotation)
         report = {
             "case_id": args.case_id,
             "run_id": str(UUID(args.run_id)),
             "checks": [asdict(check) for check in checks],
+            "provenance": provenance(case),
+            "artifact_version": (observed.get("workflow") or {}).get("version"),
+            "result_fingerprint": result_fingerprint(observed),
             "passed_checks": sum(c.passed is True for c in checks),
             "failed_checks": sum(c.passed is False for c in checks),
             "unscored_checks": sum(c.passed is None for c in checks),
@@ -350,7 +351,12 @@ def main() -> int:
         }
         if args.langfuse:
             report["langfuse"] = publish_scores(
-                str(UUID(args.run_id)), args.case_id, checks, observed
+                str(UUID(args.run_id)),
+                args.case_id,
+                checks,
+                observed,
+                case_definition=case,
+                total_timeout=args.export_timeout,
             )
         result = json.dumps(report, indent=2)
         if args.output:
@@ -358,11 +364,18 @@ def main() -> int:
             args.output.write_text(result + "\n", encoding="utf-8")
         print(result)
         return int(
-            (args.fail_on_failed and report["failed_checks"] > 0)
-            or (args.strict and (report["failed_checks"] > 0 or report["unscored_checks"] > 0))
+            (args.langfuse and report["langfuse"]["status"] != "verified")
+            or (args.fail_on_failed and report["failed_checks"] > 0)
+            or (
+                args.strict
+                and (report["failed_checks"] > 0 or report["unscored_checks"] > 0)
+            )
         )
     except (ValueError, KeyError, TypeError, OSError, psycopg.Error) as exc:
-        print("Evaluation failed:", str(exc) if isinstance(exc, ValueError) else type(exc).__name__)
+        print(
+            "Evaluation failed:",
+            str(exc) if isinstance(exc, ValueError) else type(exc).__name__,
+        )
         return 1
 
 

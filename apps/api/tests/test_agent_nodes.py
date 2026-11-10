@@ -432,3 +432,33 @@ def test_contradictory_review_result_is_rejected():
 def test_typed_model_output_cannot_inject_approval_fields():
     with pytest.raises(ValidationError):
         CoverageDraft.model_validate(coverage_draft().model_dump() | {"approved": True})
+
+
+@pytest.mark.parametrize("deductible,payment", [("1000", "0.00"), ("100", "50.00"), (None, None)])
+@pytest.mark.parametrize("extra_search", [False, True])
+def test_packet_review_includes_server_payment_in_artifact(deductible, payment, extra_search):
+    context = make_context()
+    context.generator.outputs.append(
+        packet_draft(context, coverage=coverage_draft(deductible=deductible))
+    )
+    state = make_state("file_claim")
+    state.update(run(file_claim, state, context))
+    before = state["draft"].model_dump(mode="json")
+    context.reviewer.outputs.append({"unsupported": []})
+    if extra_search:
+        context.reviewer.outputs.append(
+            ReviewVerdict(outcome="needs_information", questions=["Policy wording?"],
+                          evidence_query="deductible")
+        )
+    context.reviewer.outputs.append(ReviewVerdict(outcome="pass"))
+    result = run(reviewer, state, context)
+    assert result["phase"] == "human_review"
+    for call in context.reviewer.calls[1:]:
+        payload = call["payload"]
+        calculation = payload["draft"]["calculated_estimate"]
+        assert calculation == payload["calculated_estimate"]
+        if payment is None:
+            assert calculation is None
+        else:
+            assert calculation["estimated_payment"] == payment
+    assert state["draft"].model_dump(mode="json") == before

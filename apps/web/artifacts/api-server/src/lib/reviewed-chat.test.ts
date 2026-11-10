@@ -10,7 +10,7 @@ test("claim worker only receives explicitly allowed tracing configuration", () =
   assert.equal(result.LANGFUSE_SECRET_KEY, "secret-test");
   assert.equal(result.LANGFUSE_CAPTURE_SYNTHETIC_CONTENT, undefined);
   assert.equal(result.UNRELATED_SECRET, undefined);
-  assert.equal(claimWorkerEnv({}, "ollama").LANGFUSE_TRACING_ENABLED, undefined);
+  assert.equal(claimWorkerEnv({}, "ollama").LANGFUSE_TRACING_ENABLED, "false");
   assert.equal(claimWorkerEnv({ LANGFUSE_TRACING_ENABLED: "false", LANGFUSE_SECRET_KEY: "secret" }, "ollama").LANGFUSE_SECRET_KEY, undefined);
   const fictional = claimWorkerEnv({ LANGFUSE_TRACING_ENABLED: "true", LANGFUSE_CAPTURE_SYNTHETIC_CONTENT: "true", JEEVES_SYNTHETIC_TRACE_CLAIM_IDS: "synthetic-claim", KEENABLE_SEARCH_ENABLED: "true", KEENABLE_API_KEY: "web-test" }, "ollama");
   assert.equal(fictional.JEEVES_SYNTHETIC_TRACE_CLAIM_IDS, "synthetic-claim");

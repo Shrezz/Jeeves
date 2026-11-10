@@ -1,6 +1,7 @@
 """One private JSON request from the authenticated web API; no HTTP listener or tools."""
 
 import asyncio
+import hashlib
 import json
 import os
 import sys
@@ -20,21 +21,24 @@ from app.services.nebius import NEBIUS_BASE_URL, nebius_pair
 class OllamaModel:
     client: httpx.AsyncClient
     model: str
+    role: str = "generator"
 
     async def generate(self, *, prompt: str, payload: dict, output_type: type[Output]) -> Output:
         with observation(
-            "model-generation",
-            as_type="generation",
+            "model-call",
+            as_type="span",
             model=self.model,
-            metadata={"provider": "ollama", "schema": output_type.__name__},
+            metadata={
+                "provider": "ollama",
+                "schema": output_type.__name__,
+                "model_role": self.role,
+            },
         ) as span:
             if capture_synthetic_content():
                 span.update(input=sanitize_content({"prompt": prompt, "payload": payload}))
             else:
                 span.update(input={"capture": "metadata_only", "schema": output_type.__name__})
-            result = await self._generate(
-                prompt=prompt, payload=payload, output_type=output_type, span=span
-            )
+            result = await self._generate(prompt=prompt, payload=payload, output_type=output_type)
             span.update(
                 output=sanitize_content(result.model_dump(mode="json"))
                 if capture_synthetic_content()
@@ -42,9 +46,7 @@ class OllamaModel:
             )
             return result
 
-    async def _generate(
-        self, *, prompt: str, payload: dict, output_type: type[Output], span
-    ) -> Output:
+    async def _generate(self, *, prompt: str, payload: dict, output_type: type[Output]) -> Output:
         schema = output_type.model_json_schema()
         # Pydantic accepts Decimal as a number OR arbitrary string. Constrain the
         # provider's grammar so it can't emit formatted currency like "$1,000".
@@ -68,62 +70,75 @@ class OllamaModel:
             {"role": "system", "content": prompt},
             {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
         ]
-        usage = {"prompt_tokens": 0, "completion_tokens": 0}
-        complete_usage = True
         for attempt in range(2):
-            response = await self.client.post(
-                "api/chat",
-                json={
-                    "model": self.model,
-                    "stream": False,
-                    "think": False,
-                    "format": schema,
-                    "options": {"temperature": 0, "num_ctx": 16384, "num_predict": 1500},
-                    "messages": messages,
+            with observation(
+                "model-generation",
+                as_type="generation",
+                model=self.model,
+                input={"capture": "metadata_only", "schema": output_type.__name__},
+                metadata={
+                    "attempt": attempt + 1,
+                    "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
+                    "model_role": self.role,
+                    "provider": "ollama",
                 },
-            )
-            if response.status_code == 501:
-                span.update(
-                    metadata={
-                        "provider": "ollama",
-                        "schema": output_type.__name__,
-                        "failure_type": "structured_output_unavailable",
-                    }
-                )
-                raise RuntimeError(
-                    "Ollama structured output is unavailable; use a compatible model and runtime"
-                )
-            response.raise_for_status()
-            data = response.json()
-            for field, key in (
-                ("prompt_eval_count", "prompt_tokens"),
-                ("eval_count", "completion_tokens"),
-            ):
-                value = data.get(field)
-                if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
-                    usage[key] += value
-                else:
-                    complete_usage = False
-            if not data.get("done") or data.get("done_reason") == "length":
-                raise ValueError("Incomplete model response")
-            try:
-                result = output_type.model_validate_json(data["message"]["content"])
-                if complete_usage:
-                    span.update(usage_details={**usage, "total_tokens": sum(usage.values())})
-                return result
-            except ValidationError as exc:
-                if attempt:
-                    raise
-                problems = [
-                    {"field": e["loc"], "error": e["msg"]} for e in exc.errors(include_input=False)
-                ]
-                messages += [
-                    {"role": "assistant", "content": data["message"]["content"]},
-                    {
-                        "role": "user",
-                        "content": "Correct the structured response: " + json.dumps(problems),
+            ) as span:
+                response = await self.client.post(
+                    "api/chat",
+                    json={
+                        "model": self.model,
+                        "stream": False,
+                        "think": False,
+                        "format": schema,
+                        "options": {"temperature": 0, "num_ctx": 16384, "num_predict": 1500},
+                        "messages": messages,
                     },
-                ]
+                )
+                if response.status_code == 501:
+                    span.update(
+                        metadata={
+                            "provider": "ollama",
+                            "schema": output_type.__name__,
+                            "failure_type": "structured_output_unavailable",
+                        }
+                    )
+                    raise RuntimeError(
+                        "Ollama structured output is unavailable; use a compatible model and runtime"
+                    )
+                response.raise_for_status()
+                data = response.json()
+                usage = {}
+                for field, key in (("prompt_eval_count", "input"), ("eval_count", "output")):
+                    value = data.get(field)
+                    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+                        usage[key] = value
+                if usage:
+                    span.update(usage_details=usage)
+                if not data.get("done") or data.get("done_reason") == "length":
+                    raise ValueError("Incomplete model response")
+                try:
+                    result = output_type.model_validate_json(data["message"]["content"])
+                    span.update(output={"validated": True})
+                    return result
+                except ValidationError as exc:
+                    span.update(
+                        level="WARNING",
+                        status_message="Structured validation failed",
+                        output={"validated": False},
+                    )
+                    if attempt:
+                        raise
+                    problems = [
+                        {"field": e["loc"], "error": e["msg"]}
+                        for e in exc.errors(include_input=False)
+                    ]
+                    messages += [
+                        {"role": "assistant", "content": data["message"]["content"]},
+                        {
+                            "role": "user",
+                            "content": "Correct the structured response: " + json.dumps(problems),
+                        },
+                    ]
         raise ValueError("Invalid model response")
 
 
@@ -134,8 +149,8 @@ async def chat_models():
         async with httpx.AsyncClient(
             base_url="http://127.0.0.1:11434/", trust_env=False, timeout=90
         ) as client:
-            model = OllamaModel(client, os.environ.get("OLLAMA_MODEL", "gemma4:12b"))
-            yield model, model
+            name = os.environ.get("OLLAMA_MODEL", "gemma4:12b")
+            yield OllamaModel(client, name, "generator"), OllamaModel(client, name, "reviewer")
     elif mode == "nebius":
         async with httpx.AsyncClient(
             base_url=NEBIUS_BASE_URL,
@@ -156,4 +171,7 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    from app.observability.tracing import flush_traces
+    from app.services.worker_runtime import run_worker
+
+    run_worker(lambda: asyncio.run(main()), flush=flush_traces)

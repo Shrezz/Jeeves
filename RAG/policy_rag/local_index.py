@@ -7,9 +7,9 @@ import chromadb
 from chromadb.utils.embedding_functions.onnx_mini_lm_l6_v2 import ONNXMiniLM_L6_V2
 
 from .chunker import build_chunks
+from .observability import span
 from .pdf_parser import parse_pdf
 from .policy_identity import read_identity
-from .observability import span
 
 
 class LocalPolicyIndex:
@@ -21,9 +21,18 @@ class LocalPolicyIndex:
             embed = ONNXMiniLM_L6_V2(preferred_providers=["CPUExecutionProvider"])
             embed.DOWNLOAD_PATH = directory / "model"
         self.embed = embed
-        self.collection = chromadb.PersistentClient(path=str(directory / "chroma")).get_or_create_collection(
-            "ui_policy_minilm_v1", embedding_function=None, metadata={"hnsw:space": "cosine"}
-        )
+        self.client = chromadb.PersistentClient(path=str(directory / "chroma"))
+        try:
+            self.collection = self.client.get_or_create_collection(
+                "ui_policy_minilm_v1", embedding_function=None, metadata={"hnsw:space": "cosine"}
+            )
+        except BaseException:
+            self.client.close()
+            raise
+
+    def close(self) -> None:
+        """Release the persistent store before the one-shot worker exits."""
+        self.client.close()
 
     @staticmethod
     def scope(owner: str, policy: UUID) -> dict:

@@ -45,16 +45,13 @@ def test_ollama_generation_traces_only_safe_metadata(monkeypatch):
             )
 
     assert asyncio.run(run()).route == "answer_claim"
-    assert records == [
-        {
-            "name": "model-generation",
-            "as_type": "generation",
-            "model": "test-model",
-            "metadata": {"provider": "ollama", "schema": "RouteDecision"},
-        },
-        {"input": {"capture": "metadata_only", "schema": "RouteDecision"}},
-        {"output": {"validated": True}},
-    ]
+    assert "private prompt" not in repr(records)
+    assert "private claim" not in repr(records)
+    generations = [r for r in records if r.get("as_type") == "generation"]
+    assert len(generations) == 1
+    assert generations[0]["model"] == "test-model"
+    assert generations[0]["metadata"]["model_role"] == "generator"
+    assert {"output": {"validated": True}} in records
 
 
 def test_policy_retrieval_traces_only_result_count(monkeypatch):
@@ -122,9 +119,9 @@ def test_ollama_usage_sums_provider_counts_across_retries(monkeypatch):
             )
 
     assert asyncio.run(run()).route == "answer_claim"
-    assert {
-        "usage_details": {"prompt_tokens": 30, "completion_tokens": 9, "total_tokens": 39}
-    } in updates
+    usage = [u["usage_details"] for u in updates if "usage_details" in u]
+    assert usage == [{"input": 10, "output": 4}, {"input": 20, "output": 5}]
+    assert sum(u["input"] + u["output"] for u in usage) == 39
 
 
 def test_unsupported_ollama_structured_output_is_recorded_without_response_body(monkeypatch):

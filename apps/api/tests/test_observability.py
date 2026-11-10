@@ -132,7 +132,7 @@ def test_provider_usage_is_recorded_without_prompt_or_response(monkeypatch):
             )
 
     assert asyncio.run(invoke()).route == "answer_claim"
-    generation = fake.events[0]
+    generation = next(e for e in fake.events if e["start"]["as_type"] == "generation")
     assert generation["start"]["as_type"] == "generation"
     assert next(u["usage_details"] for u in generation["updates"] if "usage_details" in u) == {
         "prompt_tokens": 10,

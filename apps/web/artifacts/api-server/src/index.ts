@@ -1,6 +1,10 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 
+import { validateProductionObservability } from "./lib/workflow-tracing";
+
+validateProductionObservability(process.env);
+
 const rawPort = process.env["PORT"];
 
 if (!rawPort) {

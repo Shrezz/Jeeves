@@ -1,6 +1,7 @@
 """OpenAI-compatible JSON-schema requests, with bounded timeouts and retries. No provider fallback."""
 
 import asyncio
+import hashlib
 import json
 import logging
 from dataclasses import dataclass
@@ -62,8 +63,8 @@ class JsonSchemaModel:
     ) -> Output:
         # Content capture is separately enabled only for synthetic demo inputs.
         with observation(
-            "model-generation",
-            as_type="generation",
+            "model-call",
+            as_type="span",
             model=self.model,
             metadata={
                 "schema": output_type.__name__,
@@ -74,15 +75,13 @@ class JsonSchemaModel:
                 span.update(input=sanitize_content({"prompt": prompt, "payload": payload}))
             else:
                 span.update(input={"capture": "metadata_only", "schema": output_type.__name__})
-            result = await self._generate(
-                prompt=prompt, payload=payload, output_type=output_type, span=span
-            )
+            result = await self._generate(prompt=prompt, payload=payload, output_type=output_type)
             if capture_synthetic_content():
                 span.update(output=sanitize_content(result.model_dump(mode="json")))
             return result
 
     async def _generate(
-        self, *, prompt: str, payload: dict[str, Any], output_type: type[Output], span: Any
+        self, *, prompt: str, payload: dict[str, Any], output_type: type[Output]
     ) -> Output:
         started = perf_counter()
         body = {
@@ -101,86 +100,112 @@ class JsonSchemaModel:
                 },
             },
         }
-        if output_type.__name__ == "PacketDraft" and self.model.startswith("deepseek-ai/DeepSeek-V4"):
+        if output_type.__name__ == "PacketDraft" and self.model.startswith(
+            "deepseek-ai/DeepSeek-V4"
+        ):
             # The separately reviewed packet is a structured drafting task. Reserve its budget for JSON.
             body["reasoning_effort"] = "none"
         for attempt in range(2):
-            try:
-                response = await self.client.post(
-                    "chat/completions", json=body, timeout=self.timeout_seconds
-                )
-                if attempt == 0 and (response.status_code == 429 or response.status_code >= 500):
-                    await asyncio.sleep(0.25)
-                    continue
-                response.raise_for_status()
-                data = response.json()
-                choice = data["choices"][0]
-                if (
-                    choice["message"].get("refusal")
-                    or choice.get("finish_reason") == "content_filter"
-                ):
-                    raise ModelUnavailable("Model response was unavailable or invalid")
-                if choice.get("finish_reason") != "stop":
-                    if (
-                        choice.get("finish_reason") == "length"
-                        and body.get("reasoning_effort") == "low"
-                        and self.model.startswith("deepseek-ai/DeepSeek-V4")
+            with observation(
+                "model-generation",
+                as_type="generation",
+                model=self.model,
+                input={"capture": "metadata_only", "schema": output_type.__name__},
+                metadata={
+                    "attempt": attempt + 1,
+                    "model_role": self.role or "generator",
+                    "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
+                },
+            ) as span:
+                try:
+                    response = await self.client.post(
+                        "chat/completions", json=body, timeout=self.timeout_seconds
+                    )
+                    if attempt == 0 and (
+                        response.status_code == 429 or response.status_code >= 500
                     ):
-                        # Retry with the same token cap, reserving it for the actual JSON.
-                        # The independent incident and policy checks still run on the result.
-                        body["reasoning_effort"] = "none"
-                    raise ValueError("Incomplete model response")
-                result = output_type.model_validate_json(choice["message"]["content"])
-                raw_usage = data.get("usage") or {}
-                if not isinstance(raw_usage, dict):
-                    raw_usage = {}
-                usage = {
-                    key: raw_usage[key]
-                    for key in ("prompt_tokens", "completion_tokens", "total_tokens")
-                    if isinstance(raw_usage.get(key), int)
-                    and not isinstance(raw_usage[key], bool)
-                    and raw_usage[key] >= 0
-                }
-                if usage:
-                    span.update(usage_details=usage)
-                span.update(
-                    output={"validated": True},
-                    metadata={
-                        "schema": output_type.__name__,
-                        "attempts": attempt + 1,
-                        **({"model_role": self.role} if self.role else {}),
-                    },
-                )
-                logger.info(
-                    json.dumps(
-                        {
-                            "event": "model_completed",
-                            "run_id": current_run_id.get(),
-                            "model": self.model,
+                        span.update(
+                            level="WARNING",
+                            status_message="Provider retry",
+                            output={"http_status": response.status_code},
+                        )
+                        await asyncio.sleep(0.25)
+                        continue
+                    response.raise_for_status()
+                    data = response.json()
+                    raw_usage = data.get("usage") or {}
+                    if not isinstance(raw_usage, dict):
+                        raw_usage = {}
+                    usage = {
+                        key: raw_usage[key]
+                        for key in ("prompt_tokens", "completion_tokens", "total_tokens")
+                        if isinstance(raw_usage.get(key), int)
+                        and not isinstance(raw_usage[key], bool)
+                        and raw_usage[key] >= 0
+                    }
+                    if usage:
+                        span.update(usage_details=usage)
+                    choice = data["choices"][0]
+                    if (
+                        choice["message"].get("refusal")
+                        or choice.get("finish_reason") == "content_filter"
+                    ):
+                        raise ModelUnavailable("Model response was unavailable or invalid")
+                    if choice.get("finish_reason") != "stop":
+                        if (
+                            choice.get("finish_reason") == "length"
+                            and body.get("reasoning_effort") == "low"
+                            and self.model.startswith("deepseek-ai/DeepSeek-V4")
+                        ):
+                            # Retry with the same token cap, reserving it for the actual JSON.
+                            # The independent incident and policy checks still run on the result.
+                            body["reasoning_effort"] = "none"
+                        raise ValueError("Incomplete model response")
+                    result = output_type.model_validate_json(choice["message"]["content"])
+                    span.update(
+                        output={"validated": True},
+                        metadata={
                             "schema": output_type.__name__,
-                            "elapsed_ms": round((perf_counter() - started) * 1000),
-                            "usage": data.get("usage", {}),
-                        }
+                            "attempts": attempt + 1,
+                            **({"model_role": self.role} if self.role else {}),
+                        },
                     )
-                )
-                return result
-            except (httpx.TimeoutException, httpx.TransportError) as exc:
-                if attempt == 0:
-                    continue
-                raise ModelUnavailable("Model request timed out or could not connect") from exc
-            except (ValueError, KeyError, IndexError, TypeError) as exc:
-                if attempt == 0:
-                    body["messages"].append(
-                        {
-                            "role": "user",
-                            "content": "Return a complete JSON object matching the requested schema and its field constraints. Do not add commentary.",
-                        }
+                    logger.info(
+                        json.dumps(
+                            {
+                                "event": "model_completed",
+                                "run_id": current_run_id.get(),
+                                "model": self.model,
+                                "schema": output_type.__name__,
+                                "elapsed_ms": round((perf_counter() - started) * 1000),
+                                "usage": usage,
+                            }
+                        )
                     )
-                    continue
-                raise ModelUnavailable("Model response was unavailable or invalid") from exc
-            except httpx.HTTPStatusError as exc:
-                # Never include provider bodies, prompts, or authorization headers in public errors.
-                raise ModelUnavailable("Model response was unavailable or invalid") from exc
+                    return result
+                except (httpx.TimeoutException, httpx.TransportError) as exc:
+                    span.update(level="ERROR", status_message="Provider transport failure")
+                    if attempt == 0:
+                        continue
+                    raise ModelUnavailable("Model request timed out or could not connect") from exc
+                except (ValueError, KeyError, IndexError, TypeError) as exc:
+                    span.update(
+                        level="WARNING",
+                        status_message="Structured validation failed",
+                        output={"validated": False},
+                    )
+                    if attempt == 0:
+                        body["messages"].append(
+                            {
+                                "role": "user",
+                                "content": "Return a complete JSON object matching the requested schema and its field constraints. Do not add commentary.",
+                            }
+                        )
+                        continue
+                    raise ModelUnavailable("Model response was unavailable or invalid") from exc
+                except httpx.HTTPStatusError as exc:
+                    # Never include provider bodies, prompts, or authorization headers in public errors.
+                    raise ModelUnavailable("Model response was unavailable or invalid") from exc
         raise ModelUnavailable("Model request failed")
 
 

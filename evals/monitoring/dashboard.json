@@ -1,0 +1,245 @@
+{
+  "name": "Jeeves Operations",
+  "description": "Request health, latency, model usage and measured quality. Quality tiles use the current jeeves-ui-v2 evaluator implementation. Historical scores remain inspectable; filter by environment. Alerts are disabled.",
+  "widgets": [
+    {
+      "name": "Jeeves \u00b7 Requests by environment",
+      "description": "Filter by environment before assessing production. Verification runs are synthetic.",
+      "view": "observations",
+      "chartType": "HORIZONTAL_BAR",
+      "dimensions": [
+        {
+          "field": "environment"
+        }
+      ],
+      "metrics": [
+        {
+          "measure": "count",
+          "agg": "count"
+        }
+      ],
+      "filters": [
+        {
+          "column": "isRootObservation",
+          "operator": "=",
+          "value": true,
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "name": "Jeeves \u00b7 Request latency p95",
+      "description": "Filter by environment before assessing production. Verification runs are synthetic.",
+      "view": "observations",
+      "chartType": "HORIZONTAL_BAR",
+      "dimensions": [
+        {
+          "field": "name"
+        }
+      ],
+      "metrics": [
+        {
+          "measure": "latency",
+          "agg": "p95"
+        }
+      ],
+      "filters": [
+        {
+          "column": "isRootObservation",
+          "operator": "=",
+          "value": true,
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "name": "Jeeves \u00b7 Errors by operation",
+      "description": "Filter by environment before assessing production. Verification runs are synthetic.",
+      "view": "observations",
+      "chartType": "HORIZONTAL_BAR",
+      "dimensions": [
+        {
+          "field": "name"
+        }
+      ],
+      "metrics": [
+        {
+          "measure": "count",
+          "agg": "count"
+        }
+      ],
+      "filters": [
+        {
+          "column": "level",
+          "operator": "=",
+          "value": "ERROR",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Jeeves \u00b7 Model tokens",
+      "description": "Filter by environment before assessing production. Verification runs are synthetic.",
+      "view": "observations",
+      "chartType": "HORIZONTAL_BAR",
+      "dimensions": [
+        {
+          "field": "providedModelName"
+        }
+      ],
+      "metrics": [
+        {
+          "measure": "totalTokens",
+          "agg": "sum"
+        }
+      ],
+      "filters": [
+        {
+          "column": "type",
+          "operator": "=",
+          "value": "GENERATION",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Jeeves \u00b7 Measured check pass rates",
+      "description": "Only the current jeeves-ui-v2 evaluator implementation. Filter by environment before comparing runs. Historical scores remain available in Scores and trace details; missing semantic labels are not passes.",
+      "view": "scores-boolean",
+      "chartType": "HORIZONTAL_BAR",
+      "dimensions": [
+        {
+          "field": "name"
+        }
+      ],
+      "metrics": [
+        {
+          "measure": "value",
+          "agg": "avg"
+        }
+      ],
+      "filters": [
+        {
+          "column": "metadata",
+          "key": "evaluator_version",
+          "operator": "=",
+          "value": "jeeves-ui-v2",
+          "type": "stringObject"
+        }
+      ]
+    },
+    {
+      "name": "Jeeves \u00b7 Unscored checks",
+      "description": "Only the current jeeves-ui-v2 evaluator implementation. Filter by environment before comparing runs. Historical scores remain available in Scores and trace details; missing semantic labels are not passes.",
+      "view": "scores-numeric",
+      "chartType": "NUMBER",
+      "dimensions": [],
+      "metrics": [
+        {
+          "measure": "value",
+          "agg": "sum"
+        }
+      ],
+      "filters": [
+        {
+          "column": "name",
+          "operator": "=",
+          "value": "ui_eval_unscored_count",
+          "type": "string"
+        },
+        {
+          "column": "metadata",
+          "key": "evaluator_version",
+          "operator": "=",
+          "value": "jeeves-ui-v2",
+          "type": "stringObject"
+        }
+      ]
+    },
+    {
+      "name": "Jeeves \u00b7 Warning observations by operation",
+      "description": "Counts warning observations, not unique failed requests. Includes reviewer revisions that can later pass. Filter by environment and inspect the final root outcome.",
+      "view": "observations",
+      "chartType": "HORIZONTAL_BAR",
+      "dimensions": [
+        {
+          "field": "name"
+        }
+      ],
+      "metrics": [
+        {
+          "measure": "count",
+          "agg": "count"
+        }
+      ],
+      "filters": [
+        {
+          "column": "level",
+          "operator": "=",
+          "value": "WARNING",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Jeeves \u00b7 Blocked packet requests",
+      "description": "Counts ui-claim-workflow root warnings, which mark blocked packet outcomes in current builds. Earlier roots may lack the warning signal; reviewer warnings remain visible separately.",
+      "view": "observations",
+      "chartType": "NUMBER",
+      "dimensions": [],
+      "metrics": [
+        {
+          "measure": "count",
+          "agg": "count"
+        }
+      ],
+      "filters": [
+        {
+          "column": "isRootObservation",
+          "operator": "=",
+          "value": true,
+          "type": "boolean"
+        },
+        {
+          "column": "name",
+          "operator": "=",
+          "value": "ui-claim-workflow",
+          "type": "string"
+        },
+        {
+          "column": "level",
+          "operator": "=",
+          "value": "WARNING",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Jeeves \u00b7 Abstained answers",
+      "description": "Counts chat-guidance warnings, emitted when no answer passes verification. Clarification pauses and conditional fallbacks are not counted as abstentions.",
+      "view": "observations",
+      "chartType": "NUMBER",
+      "dimensions": [],
+      "metrics": [
+        {
+          "measure": "count",
+          "agg": "count"
+        }
+      ],
+      "filters": [
+        {
+          "column": "name",
+          "operator": "=",
+          "value": "chat-guidance",
+          "type": "string"
+        },
+        {
+          "column": "level",
+          "operator": "=",
+          "value": "WARNING",
+          "type": "string"
+        }
+      ]
+    }
+  ]
+}

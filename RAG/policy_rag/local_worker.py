@@ -3,14 +3,14 @@
 import json
 import os
 import sys
-from contextlib import redirect_stdout
+from contextlib import closing, redirect_stdout
 from pathlib import Path
 from uuid import UUID
 
 from filelock import FileLock
 
 from .local_index import LocalPolicyIndex
-from .observability import flush, span
+from .observability import export_failed, flush, span, trace_session
 
 
 def main():
@@ -26,10 +26,12 @@ def main():
     }
     token = context.attach(propagate.extract(carrier))
     try:
-        result = perform(request, owner, policy, directory)
+        with trace_session(os.environ.get("JEEVES_TRACE_SESSION_ID")):
+            result = perform(request, owner, policy, directory)
     finally:
         flush()
         context.detach(token)
+    result["telemetry_export_failed"] = export_failed()
     print(json.dumps(result))
 
 
@@ -40,8 +42,8 @@ def perform(request, owner, policy, directory):
         FileLock(directory / "worker.lock", timeout=45),
         redirect_stdout(sys.stderr),
         span("local-policy-" + request["operation"]),
+        closing(LocalPolicyIndex(directory)) as index,
     ):
-        index = LocalPolicyIndex(directory)
         if request["operation"] == "index":
             result = {"count": index.index(owner, policy, Path(request["pdf"]))}
         elif request["operation"] == "search":
@@ -56,4 +58,6 @@ def perform(request, owner, policy, directory):
 
 
 if __name__ == "__main__":
-    main()
+    from .worker_runtime import run_worker
+
+    run_worker(main)

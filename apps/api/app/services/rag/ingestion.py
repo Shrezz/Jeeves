@@ -83,7 +83,7 @@ def ingest_policy_pdf(
             if not chunks:
                 raise ValueError("No policy text chunks were produced")
             chunking.update(output={"chunk_count": len(chunks)})
-        with observation("policy-embedding") as embedding:
+        with observation("policy-embedding", as_type="embedding") as embedding:
             embedded = _embed_chunks(chunks, embedder, batch_size=batch_size)
             embedding.update(output={"vector_count": len(embedded)})
         with observation("policy-chunk-storage") as storage:

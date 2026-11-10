@@ -71,6 +71,11 @@ async def reviewer(state: AgentState, runtime: Runtime[AgentContext]) -> AgentSt
         # Unknown coverage inputs must never be cleared just to produce an estimate.
         estimate = calculate_estimate(assessment) if assessment else None
         payload["calculated_estimate"] = estimate.model_dump(mode="json") if estimate else None
+        # The rendered packet includes server arithmetic. Review that complete
+        # artifact, not only the model-authored fields, without letting the model
+        # supply or overwrite a payment calculation.
+        if isinstance(draft, PacketDraft):
+            payload["draft"]["calculated_estimate"] = payload["calculated_estimate"]
         verdict = await context.reviewer.generate(
             prompt=REVIEW + checklist,
             payload=payload,
@@ -85,6 +90,8 @@ async def reviewer(state: AgentState, runtime: Runtime[AgentContext]) -> AgentSt
                 "calculated_estimate": estimate.model_dump(mode="json") if estimate else None,
                 "additional_search_used": True,
             }
+            if isinstance(draft, PacketDraft):
+                payload["draft"]["calculated_estimate"] = payload["calculated_estimate"]
             verdict = await context.reviewer.generate(
                 prompt=REVIEW
                 + checklist

@@ -17,13 +17,14 @@ class SyntheticChatModel:
         self.messages = []
         self.output_type = None
 
-    def with_structured_output(self, output_type):
+    def with_structured_output(self, output_type, *, include_raw=False):
+        assert include_raw
         self.output_type = output_type
         return self
 
     async def ainvoke(self, messages):
         self.messages = messages
-        return self.result
+        return {"raw": None, "parsed": self.result, "parsing_error": None}
 
 
 def test_structured_chat_output_is_validated():
@@ -48,3 +49,39 @@ def test_invalid_structured_chat_output_is_rejected():
                 prompt="synthetic", payload={}, output_type=RouteDecision
             )
         )
+
+
+def test_adapter_records_usage_without_raw_model_content(monkeypatch):
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+
+    updates = []
+
+    @contextmanager
+    def observation(*args, **kwargs):
+        class Span:
+            def update(self, **values):
+                updates.append(values)
+
+        yield Span()
+
+    class Model(SyntheticChatModel):
+        async def ainvoke(self, messages):
+            return {
+                "raw": SimpleNamespace(
+                    content="private reply",
+                    usage_metadata={"input_tokens": 8, "output_tokens": 3, "total_tokens": 11},
+                ),
+                "parsed": self.result,
+                "parsing_error": None,
+            }
+
+    monkeypatch.setattr("app.agents.model.observation", observation)
+    monkeypatch.setattr("app.agents.model.capture_synthetic_content", lambda: False)
+    asyncio.run(
+        ChatModelAdapter(Model({"route": "answer_claim"})).generate(
+            prompt="private prompt", payload={"private": "data"}, output_type=RouteDecision
+        )
+    )
+    assert {"usage_details": {"input": 8, "output": 3, "total": 11}} in updates
+    assert "private" not in repr(updates)

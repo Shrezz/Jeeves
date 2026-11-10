@@ -39,6 +39,7 @@ Treat the logs folder as confidential.
 import contextvars
 import functools
 import json
+import os
 import time
 import traceback
 import uuid
@@ -48,6 +49,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from . import config
+from .observability import flush, span
 
 PACKAGE_VERSION = "v2"
 _current: contextvars.ContextVar = contextvars.ContextVar("policy_rag_trace", default=None)
@@ -164,9 +166,9 @@ def _write(trace: Trace, status: str) -> Path:
 # Public helpers
 # ---------------------------------------------------------------------------
 @contextmanager
-def request_trace(kind: str, **context):
+def _file_trace(kind: str, **context):
     """Open a trace for one request; the file is written even if the request fails."""
-    if not config.TRACE_ENABLED:
+    if not config.TRACE_ENABLED or os.getenv("LANGFUSE_TRACING_ENVIRONMENT") == "production":
         yield None
         return
     trace = Trace(kind, dict(context))
@@ -186,6 +188,16 @@ def request_trace(kind: str, **context):
             pass                                   # logging must never break the request
 
 
+@contextmanager
+def request_trace(kind: str, **context):
+    """Export safe operation metadata; local detailed files are disabled in production."""
+    try:
+        with span("standalone-rag-" + kind), _file_trace(kind, **context) as trace:
+            yield trace
+    finally:
+        flush()
+
+
 def current_trace() -> Optional[Trace]:
     return _current.get()
 
@@ -203,17 +215,19 @@ def traced(fn):
 
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
-        trace = _current.get()
-        if trace is None:
-            return fn(*args, **kwargs)
-        step = trace.open_step(name)
-        try:
-            out = fn(*args, **kwargs)
-        except Exception as exc:
-            trace.close_step(step, "error", f"{type(exc).__name__}: {exc}")
-            raise
-        trace.close_step(step, "ok")
-        return out
+        kind = "retriever" if fn.__name__ in {"retrieve", "dense_candidates", "mmr_search", "bm25_rank", "pinned_declarations"} else "span"
+        with span(name, as_type=kind):
+            trace = _current.get()
+            if trace is None:
+                return fn(*args, **kwargs)
+            step = trace.open_step(name)
+            try:
+                out = fn(*args, **kwargs)
+            except Exception as exc:
+                trace.close_step(step, "error", f"{type(exc).__name__}: {exc}")
+                raise
+            trace.close_step(step, "ok")
+            return out
     return wrapper
 
 

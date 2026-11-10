@@ -137,10 +137,10 @@ class WorkflowService:
 
     async def execute(self, run_id: str, graph_input: Any) -> None:
         with (
+            trace_session(run_id),
             observation(
                 "agent-workflow", input={"mode": self.mode, "model_mode": self.model_mode}
             ) as span,
-            trace_session(run_id),
         ):
             await self._execute_impl(run_id, graph_input)
             failed = bool(self.runs[run_id].error)

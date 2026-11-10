@@ -120,6 +120,7 @@ router.post("/jeev/conversations/:id/messages", async (req, res) => {
     const relevant = previous.filter(entry => includePromptInHistory(entry.content, entry.reply));
     const hasPriorRelevantTurn = relevant.some(entry => promptInScope(entry.content));
     if (!promptInScope(content, { followup: hasPriorRelevantTurn })) {
+      req.log.info({ event: "chat_scope_rejected" }, "Dashboard question outside supported scope");
       await db.update(messages).set({ reply: OUT_OF_SCOPE_MESSAGE, replyState: "ready", updatedAt: new Date() })
         .where(and(eq(messages.id, prepared.row.id), eq(messages.leaseId, leaseId)));
     } else {

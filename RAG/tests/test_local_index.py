@@ -34,3 +34,23 @@ def test_blank_document_is_not_reported_as_indexed(tmp_path):
         doc.save(pdf)
     with pytest.raises(ValueError, match="no_text"):
         LocalPolicyIndex(tmp_path / "index", embed).index("user_A", uuid4(), pdf)
+
+
+def test_closed_index_is_durable_when_reopened(tmp_path):
+    policy = uuid4()
+    index = LocalPolicyIndex(tmp_path, embed)
+    try:
+        count = index.index("user_A", policy, FIXTURE)
+    finally:
+        index.close()
+    reopened = LocalPolicyIndex(tmp_path, embed)
+    try:
+        assert len(reopened.collection.get(
+            where=reopened.scope("user_A", policy), include=[]
+        )["ids"]) == count
+        assert any(
+            hit["page"] == 2 and "$275" in hit["excerpt"]
+            for hit in reopened.search("user_A", policy, "boarding")
+        )
+    finally:
+        reopened.close()

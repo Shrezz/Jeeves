@@ -82,6 +82,7 @@ def _ingest(request: IngestRequest) -> IngestResult:
                         form=identity.form, replaced_existing=replaced)
 
 
+@traced
 def delete_policy(user_id: str, policy_number: str) -> int:
     """Remove a user's policy from the vector store. Returns chunks removed."""
     user_id = _require(user_id, "user_id")

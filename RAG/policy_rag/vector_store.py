@@ -20,6 +20,7 @@ from langchain_core.embeddings import Embeddings
 from langchain_openai import OpenAIEmbeddings
 
 from . import config
+from .observability import span
 from .tracing import trace_log, traced
 
 _embeddings_override: Optional[Embeddings] = None   # tests can inject fake embeddings
@@ -65,7 +66,8 @@ def replace_policy_chunks(user_id: str, policy_number: str, docs: List[Document]
     existing = store.get(where=access_filter(user_id, policy_number), include=[])["ids"]
     if existing:
         store.delete(ids=existing)
-    store.add_documents(docs, ids=[d.metadata["chunk_id"] for d in docs])
+    with span("standalone-policy-embedding", model=config.EMBEDDING_MODEL, batch_size=len(docs)):
+        store.add_documents(docs, ids=[d.metadata["chunk_id"] for d in docs])
     trace_log("collection", config.CHROMA_COLLECTION)
     trace_log("deleted_old_chunks", len(existing))
     trace_log("inserted_chunks", len(docs))
@@ -97,7 +99,8 @@ def count_policy_chunks(user_id: str, policy_number: str) -> int:
 
 def embed_question(question: str) -> List[float]:
     """Embed the question once; the vector is reused by every search below."""
-    return get_store().embeddings.embed_query(question)
+    with span("standalone-query-embedding", model=config.EMBEDDING_MODEL):
+        return get_store().embeddings.embed_query(question)
 
 
 def scored_candidates(vector: List[float], user_id: str, policy_number: str, k: int) -> List[Tuple[Document, float]]:

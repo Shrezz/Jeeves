@@ -159,3 +159,51 @@ def test_nebius_roles_use_distinct_model_ids_for_structured_requests():
 
     asyncio.run(scenario())
     assert seen == ["test-generator", "test-reviewer"]
+
+
+@pytest.mark.parametrize(
+    ("provider_usage", "expected_usage"),
+    [
+        (
+            {
+                "prompt_tokens": 10,
+                "completion_tokens": 5,
+                "total_tokens": 15,
+                "provider_note": "private-policy-content",
+                "prompt_tokens_details": {"note": "private-policy-content"},
+            },
+            {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        ),
+        (
+            {
+                "prompt_tokens": "private-policy-content",
+                "completion_tokens": True,
+                "total_tokens": -1,
+            },
+            {},
+        ),
+        ("private-policy-content", {}),
+    ],
+)
+def test_model_completion_logs_only_validated_token_counts(
+    caplog, provider_usage, expected_usage
+):
+    import json
+    import logging
+
+    response = valid_response().json()
+    response["usage"] = provider_usage
+    with caplog.at_level(logging.INFO, logger="jeeves.models"):
+        assert request_model(
+            lambda request: httpx.Response(200, json=response)
+        ).route == "answer_claim"
+
+    events = [
+        json.loads(record.message)
+        for record in caplog.records
+        if record.name == "jeeves.models"
+    ]
+    assert len(events) == 1
+    assert events[0]["event"] == "model_completed"
+    assert events[0]["usage"] == expected_usage
+    assert "private-policy-content" not in caplog.text

@@ -99,8 +99,8 @@ It verifies cited excerpt text and page numbers against that PDF, plus routing,
 workflow phase, expected terms, search status, conditional payment, and review
 state when the chosen case calls for them. It cannot prove a citation entails a
 claim or that every generated statement is correct. Those two human-review
-checks remain **unscored** unless supplied for the exact run ID in an annotation
-file following `review-rubric.md`.
+checks remain **unscored** unless supplied for the exact run ID, artifact version,
+and result fingerprint in an annotation file following `review-rubric.md`.
 
 With the local demo database running, set `UI_EVAL_DATABASE_URL` to the local
 database URL from `docs/local-development.md`, and load the synthetic claim
@@ -113,10 +113,37 @@ apps/api/.venv/bin/python evals/ui_workflow_eval.py \
 ```
 
 Add `--langfuse` and the normal Langfuse credentials to attach measured scores
-to the latest completed trace **only when its saved route and phase match the
-database run**. No raw prompt or policy text is uploaded by this evaluator.
-The result states whether submitted scores were immediately visible. Add
-`--fail-on-failed` for a nonzero exit on failures, or `--strict` to also fail on
-unscored checks. Human annotations are a JSON object keyed by the exact run UUID,
-for example `{"RUN_UUID":{"citation_support_human":true}}`; omitted labels
-remain unscored. Reports default to `reports/`, which should not be committed.
+only when the latest completed root matches the saved route, phase, artifact
+version, and result fingerprint. The synchronous exporter runs in an isolated
+process with a 45-second total limit (`--export-timeout 1..120`). Export failure,
+partial acceptance, timeout, or unverified readback always makes the CLI exit
+nonzero. A timeout means delivery is unknown; inspect Langfuse before retrying.
+No raw prompt or policy text is uploaded by this evaluator.
+
+Scores inherit the trace's environment and UTC start date. Their identities bind
+the trace, metric, evaluator implementation SHA256 and complete case SHA256.
+Retries of the same evaluation reuse IDs; a changed evaluator or case is a new
+version. Readback checks metric name/type/value, environment, UTC date, trace
+subject, artifact binding and evaluator/case provenance. Pagination limits fail
+closed. Partial batches are reported without automatic replay.
+
+Add `--fail-on-failed` for a nonzero exit on measured failures, or `--strict` to
+also fail on unscored checks. Obtain `artifact_version` and `result_fingerprint`
+from the local evaluation report, inspect that exact saved artifact, then record
+only the human labels actually reviewed:
+
+```json
+{
+  "RUN_UUID": {
+    "artifact_version": 1,
+    "result_fingerprint": "COPY_THE_64_HEX_DIGEST_FROM_THE_REPORT",
+    "labels": {"citation_support_human": true}
+  }
+}
+```
+
+Legacy run-only annotations and labels for a different artifact are rejected.
+Omitted human labels remain unscored. Reports default to `reports/`, which should
+not be committed. The `Jeeves Operations` quality widgets select the current
+`jeeves-ui-v2` evaluator implementation; rerun `evals/monitoring/provision_dashboard.py`
+after evaluator changes. Historical versions remain available on their traces.

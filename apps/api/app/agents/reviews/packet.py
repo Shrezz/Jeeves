@@ -34,7 +34,10 @@ not contain a literal disclaimer: the interface labels it Not submitted. Unresol
 material cause, cost or policy gaps must still be clarified. Treat any calculated estimate
 as conditional on the reported facts; pass only if the inputs and arithmetic are supported.
 Assess the whole packet including the server's calculated_estimate, displayed beside the
-narrative. Do not require the narrative to repeat its amounts. Use the household's explicit
+narrative. Do not require narrative or coverage.explanation to repeat calculated_estimate
+amounts: flag conflicting payment wording, not the absence of repeated arithmetic.
+Conditional wording such as "if the expense qualifies" is a qualification, not a promise.
+Before reporting a missing condition, check whether the draft already states it in other words. Use the household's explicit
 reports as conditional inputs, not hypotheticals that must be externally verified. A missing
 receipt upload does not make the reported date, cause, location or repair cost unknown.
 When previous_reviewed_coverage is supplied, check it against the original passages; a

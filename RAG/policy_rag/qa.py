@@ -23,6 +23,7 @@ from langchain_openai import ChatOpenAI
 
 from . import config
 from . import vector_store as vs
+from .observability import span
 from .calculator import compute_amount
 from .contracts import CoverageAnswer, QueryRequest, QueryResult, SourceChunk
 from .errors import InvalidRequestError, PolicyNotIngestedError, PolicyRagError
@@ -84,15 +85,23 @@ def build_messages(policy_number: str, question: str, docs: List[Document]) -> L
 @traced
 def call_llm(messages: List[BaseMessage]) -> CoverageAnswer:
     """Call the model and parse its structured answer."""
-    out = _structured_llm().invoke(messages)
-    raw, parsed = out.get("raw"), out.get("parsed")
+    with span("standalone-rag-generation", as_type="generation", model=config.LLM_MODEL) as generation:
+        out = _structured_llm().invoke(messages)
+        raw, parsed = out.get("raw"), out.get("parsed")
+        usage = getattr(raw, "usage_metadata", None) or {}
+        counts = {target: usage[source] for source, target in (
+            ("input_tokens", "input"), ("output_tokens", "output"), ("total_tokens", "total")
+        ) if isinstance(usage.get(source), int) and not isinstance(usage[source], bool) and usage[source] >= 0}
+        if generation:
+            if counts:
+                generation.update(usage_details=counts)
+            generation.update(metadata={"validated": parsed is not None})
+        if parsed is None:
+            raise LLMOutputError("Could not parse structured model output")
     if raw is not None:
         trace_log("model", (getattr(raw, "response_metadata", {}) or {}).get("model_name", config.LLM_MODEL))
         trace_log("token_usage", getattr(raw, "usage_metadata", None))
         trace_log("finish_reason", (getattr(raw, "response_metadata", {}) or {}).get("finish_reason"))
-    if parsed is None:
-        trace_log("parsing_error", str(out.get("parsing_error")))
-        raise LLMOutputError(f"Could not parse model output: {out.get('parsing_error')}")
     trace_log("parsed_answer", parsed)
     return parsed
 

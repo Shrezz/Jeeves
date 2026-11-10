@@ -1,9 +1,7 @@
 """Evaluate stored fictional UI outputs without a model or a live Langfuse account."""
 
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -11,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "evals"))
 
 from evaluators import Check
-from ui_workflow_eval import evaluate_ui, load_case, publish_scores, source_integrity
+from ui_workflow_eval import evaluate_ui, load_case, source_integrity
 
 PDF = (ROOT / "data/fixtures/Cedar-Cove-Synthetic-Homeowners.pdf").read_bytes()
 POLICY = "fictional-policy"
@@ -148,40 +146,47 @@ def test_conditional_payment_and_repair_status_are_scored_when_present():
     assert checks["repair_status"].passed is True
 
 
-def test_scores_are_not_attached_to_a_trace_with_a_different_saved_outcome(monkeypatch):
-    import langfuse
+def test_fixture_declarations_banner_is_not_a_false_citation_failure():
+    from ui_workflow_eval import source_integrity
 
-    sent = []
-    now = datetime.now(UTC)
-    root = SimpleNamespace(
-        trace_id="trace-1",
-        start_time=now,
-        end_time=now,
-        output={"route": "file_claim", "status": "blocked"},
+    quote = "01 / DECLARATIONS\nHomeowners policy\nPolicy number CCV-HO3-CA-100731"
+    source = {"page": 1, "chunkId": "policy:0", "excerpt": quote}
+    assert source_integrity([source], "policy", PDF)
+    assert not source_integrity(
+        [{**source, "excerpt": quote.replace("100731", "999999")}], "policy", PDF
     )
-    api = SimpleNamespace(
-        observations=SimpleNamespace(get_many=lambda **kwargs: SimpleNamespace(data=[root])),
-        scores=SimpleNamespace(
-            get_many=lambda **kwargs: SimpleNamespace(
-                data=[SimpleNamespace(id=score["score_id"]) for score in sent]
-            )
-        ),
+    # Never permit omitting a material word from a clause.
+    assert not source_integrity(
+        [{"page": 2, "chunkId": "policy:1", "excerpt": "Gradual wear and damage are covered"}],
+        "policy",
+        PDF,
     )
-    client = SimpleNamespace(
-        api=api, create_score=lambda **kwargs: sent.append(kwargs), flush=lambda: None
+
+
+@pytest.mark.parametrize("delivery", ["verified", "submitted_not_yet_visible"])
+@pytest.mark.parametrize("strict", [False, True])
+def test_cli_export_is_not_successful_without_verified_delivery(
+    monkeypatch, delivery, strict, capsys
+):
+    import ui_workflow_eval as module
+
+    monkeypatch.setenv("UI_EVAL_DATABASE_URL", "synthetic://not-connected")
+    monkeypatch.setattr(module, "load_case", lambda *args: {"id": "synthetic", "message_terms": []})
+    monkeypatch.setattr(module, "load_observation", lambda *args: ({"message": ""}, b""))
+    monkeypatch.setattr(module, "evaluate_ui", lambda *args: [Check("phase", True, "x", "x")])
+    monkeypatch.setattr(module, "publish_scores", lambda *args, **kwargs: {"status": delivery})
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "ui_workflow_eval",
+            "--run-id",
+            "00000000-0000-0000-0000-000000000001",
+            "--case-id",
+            "synthetic",
+            "--langfuse",
+            *(["--strict"] if strict else []),
+        ],
     )
-    monkeypatch.setattr(langfuse, "get_client", lambda: client)
-    for key in ("LANGFUSE_TRACING_ENABLED", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"):
-        monkeypatch.setenv(key, "true")
-    checks = [Check("route", True, "file_claim", "file_claim"), Check("semantic", None, True, None)]
-    with pytest.raises(ValueError, match="does not match"):
-        publish_scores(
-            "run", "case", checks, {"workflow": {"route": "file_claim", "phase": "human_review"}}
-        )
-    assert not sent
-    result = publish_scores(
-        "run", "case", checks, {"workflow": {"route": "file_claim", "phase": "blocked"}}
-    )
-    assert result["status"] == "verified" and result["submitted_checks"] == 2
-    assert result["unscored_checks"] == 1
-    assert any(score["name"] == "ui_eval_unscored_count" and score["value"] == 1 for score in sent)
+    assert module.main() == (0 if delivery == "verified" else 1)
+    capsys.readouterr()

@@ -60,6 +60,7 @@ def test_actual_passages_reach_both_models_and_only_reviewed_draft_is_published(
         "sources": [{**HIT, "excerpt": "deductible is $1,000"}],
     }
     assert draft.payloads[1]["feedback"] == "Do not promise payment."
+    assert draft.payloads[1]["previous_draft"]["answer"] == "We will pay $1,000."
     assert (
         draft.payloads[0]["sources"][0]["text"]
         == review.payloads[0]["sources"][0]["text"]
@@ -134,4 +135,24 @@ def test_conditional_fallback_never_invents_a_deductible_or_amount():
             [{**HIT, "excerpt": "Flat deductible $1,000 per covered occurrence"}],
         )
         is None
+    )
+
+
+def test_citation_feedback_identifies_the_mismatched_source():
+    other = {**HIT, "chunkId": "policy-9:1", "excerpt": "Storm debris can break windows."}
+    bad = reply("The deductible is $1,000.", source=2)
+    generator = Responses(bad, reply("The deductible is $1,000."))
+    result = asyncio.run(
+        guidance({}, [HIT, other], generator, Responses(Review(approved=True, feedback="")))
+    )
+    assert "source 2" in generator.payloads[1]["feedback"]
+    assert generator.payloads[1]["previous_draft"]["citations"][0]["source"] == 2
+    assert result["sources"][0]["chunkId"] == HIT["chunkId"]
+
+
+def test_explicit_insurer_payment_promise_requires_a_condition():
+    assert unqualified_claim_decision("The insurer will pay $0 for the repair.")
+    assert unqualified_claim_decision("The insurer will not pay the expense.")
+    assert not unqualified_claim_decision(
+        "If eligible, the insurer will pay $0 after the deductible."
     )

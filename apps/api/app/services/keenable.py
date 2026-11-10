@@ -22,7 +22,7 @@ class KeenableSearch:
         capture_content = capture_synthetic_content()
         trace_input = {"query": query} if capture_content else {"query_length": len(query)}
         with observation(
-            "web-search", input=trace_input, metadata={"provider": "keenable"}
+            "web-search", as_type="tool", input=trace_input, metadata={"provider": "keenable"}
         ) as span:
             async with httpx.AsyncClient(
                 base_url="https://api.keenable.ai", timeout=10, transport=self.transport

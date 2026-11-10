@@ -27,11 +27,11 @@ def retrieve_policy_evidence(
         raise ValueError("limit and max_excerpt_chars must be positive")
 
     with observation("policy-retrieval", input={"limit": limit}) as span:
-        with observation("query-embedding"):
+        with observation("query-embedding", as_type="embedding"):
             vectors = embedder.embed([question.strip()])
             if len(vectors) != 1 or not vectors[0]:
                 raise ValueError("Embedding provider did not return one query vector")
-        with observation("vector-search"):
+        with observation("vector-search", as_type="retriever"):
             results = store.search(
                 user_id=user_id,
                 policy_id=policy_id,

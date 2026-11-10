@@ -38,3 +38,37 @@ def test_async_node_propagates_exceptions():
 def test_unknown_node_is_rejected():
     with pytest.raises(ValueError):
         agent_nodes.instrument_node("arbitrary-sensitive-name", lambda state: state)
+
+
+@pytest.mark.parametrize("async_node", [False, True])
+@pytest.mark.parametrize("phase", ["revision_required", "blocked", "needs_information", "human_review"])
+def test_review_rejections_warn_without_leaking_feedback(monkeypatch, async_node, phase):
+    from contextlib import nullcontext
+
+    events = []
+
+    class Span:
+        def update(self, **kwargs):
+            events.append(kwargs)
+
+    class Client:
+        def start_as_current_observation(self, **kwargs):
+            return nullcontext(Span())
+
+    monkeypatch.setattr(tracing, "get_trace_client", lambda: Client())
+    value = {"phase": phase, "private_feedback": "private incident"}
+
+    def sync(state):
+        return value
+
+    async def asynchronous(state):
+        return value
+
+    wrapped = agent_nodes.instrument_node("reviewer", asynchronous if async_node else sync)
+    actual = asyncio.run(wrapped({})) if async_node else wrapped({})
+    assert actual is value
+    assert "private incident" not in repr(events)
+    assert events[0]["output"] == {"phase": phase}
+    assert events[0].get("level") == (
+        "WARNING" if phase in {"revision_required", "blocked"} else None
+    )

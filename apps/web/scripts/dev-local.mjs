@@ -1,5 +1,5 @@
 /** Start the local UI and API after checking Clerk keys and migrating the UI DB. */
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import path from "node:path";
@@ -50,6 +50,17 @@ async function main() {
   if (!existsSync(python)) throw new Error("Create apps/api/.venv and install requirements-db.txt before starting. See docs/local-development.md.");
   const ragPython = path.join(env.LOCAL_RAG_ROOT, ".venv", process.platform === "win32" ? "Scripts/python.exe" : "bin/python");
   if (!existsSync(ragPython)) throw new Error("Set up RAG/.venv with RAG/requirements.txt first. See docs/local-development.md.");
+  // Content-derived identity also covers uncommitted local demo changes.
+  const release = spawnSync(python, [path.join(root, "scripts/build_release.py")], {
+    cwd: root, encoding: "utf8", timeout: 15000,
+    env: { PATH: process.env.PATH, HOME: process.env.HOME },
+  });
+  const releaseId = release.stdout?.trim();
+  if (release.error || release.status !== 0 || !/^jeeves-[a-f0-9]{20}$/.test(releaseId || "")) {
+    throw new Error("Could not compute the source release. Run scripts/build_release.py with the API Python to diagnose.");
+  }
+  env.LANGFUSE_RELEASE = releaseId;
+  console.log(`Telemetry release: ${releaseId}`);
   await run("docker", ["compose", "-f", "compose.local.yml", "up", "-d", "--wait"], root, env);
   await run(python, ["-m", "app.db.migrate", "--directory", "../web/lib/db/migrations"], api, env);
   await run(python, ["-m", "app.services.ui_workflow", "--setup"], api, env);

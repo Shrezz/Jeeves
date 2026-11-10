@@ -1,8 +1,7 @@
-"""Opt-in wrapper for the separate LangGraph agent branch's workflow nodes.
+"""Trace active graph nodes with safe, allowlisted workflow metadata.
 
-The graph owner must apply this wrapper when the agent branch is integrated.
-It records only a small allowlist of state fields; prompts and artifacts are
-never passed to tracing.
+Detailed artifacts require explicit fictional-content capture; production always
+uses metadata only. Revision and blocked outcomes are visible as warnings.
 """
 
 from __future__ import annotations
@@ -116,6 +115,15 @@ def _input(name: str, args: tuple) -> dict[str, Any]:
     return value
 
 
+
+def _record_result(span, result):
+    summary = _summary(result)
+    status = {}
+    if summary.get("phase") in {"revision_required", "blocked"}:
+        status = {"level": "WARNING", "status_message": "Draft did not pass review"}
+    span.update(output=summary, **status)
+
+
 def instrument_node(name: str, node: Callable) -> Callable:
     """Preserve a node's signature and return type while tracing safe metadata."""
     if name not in _NODES:
@@ -124,18 +132,18 @@ def instrument_node(name: str, node: Callable) -> Callable:
 
         @wraps(node)
         async def async_node(*args, **kwargs):
-            with observation(f"agent-{name}", input=_input(name, args)) as span:
+            with observation(f"agent-{name}", input=_input(name, args), as_type="agent") as span:
                 result = await node(*args, **kwargs)
-                span.update(output=_summary(result))
+                _record_result(span, result)
                 return result
 
         return async_node
 
     @wraps(node)
     def sync_node(*args, **kwargs):
-        with observation(f"agent-{name}", input=_input(name, args)) as span:
+        with observation(f"agent-{name}", input=_input(name, args), as_type="agent") as span:
             result = node(*args, **kwargs)
-            span.update(output=_summary(result))
+            _record_result(span, result)
             return result
 
     return sync_node
