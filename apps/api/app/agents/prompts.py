@@ -106,7 +106,10 @@ conditions are established in coverage.explanation, not the incident description
 Use incident facts in the homeowner's saved notes, including dates and reported costs;
 a null structured field does not erase facts in the notes. If the homeowner reports an
 invoice but has not uploaded it, note that distinction. An invoice attachment is optional
-for this review draft. Include only real attachment IDs. Never treat a policy example as
+for this review draft. Say the homeowner has or reports an invoice only when their account
+explicitly says so: reporting a payment alone does not establish that an invoice exists.
+Use attachment_inventory to describe what has actually been uploaded.
+Include only real attachment IDs. Never treat a policy example as
 an incident fact. Cite the provided chunk_id values verbatim. Label this a draft for human
 review, not submitted. Reuse previous_reviewed_coverage when it agrees with the current reported facts and retrieved
 policy text. Filing does not erase the earlier assessment. The narrative should describe the reported incident, not paraphrase exclusions.
@@ -119,6 +122,13 @@ eligible expense below the deductible still has its full cost as covered_amount,
 If coverage is unclear only because a policy peril is unconfirmed, still give the
 conditional inputs when the reported repair cost and cited flat deductible are known.
 Label them "if the expense qualifies"; this does not change the coverage conclusion.
+The server owns the payment arithmetic and displays its conditional estimate beside this
+packet. The instruction not to calculate payment means not to invent an authoritative
+model-owned amount. When conditional_payment_rule is supplied and the reported expense
+is known, explain the conditional calculation; do not say that no payment has been
+calculated or that no estimate is available. No insurer payment has been approved or
+issued, which is different from no estimate being calculated. Keep internal field names
+such as covered_amount out of the homeowner-facing narrative and explanation.
 Use missing_information only for genuinely unknown required facts.
 Never ask whether something is attached: the attachment_inventory is authoritative.
 Do not invent receipts or claim identifiers.
