@@ -41,7 +41,10 @@ def perform(request, owner, policy, directory):
     with (
         FileLock(directory / "worker.lock", timeout=45),
         redirect_stdout(sys.stderr),
-        span("local-policy-" + request["operation"]),
+        span(
+            "local-policy-" + request["operation"],
+            as_type="tool" if request["operation"] == "search" else "span",
+        ),
         closing(LocalPolicyIndex(directory)) as index,
     ):
         if request["operation"] == "index":

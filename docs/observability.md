@@ -41,7 +41,11 @@ is Langfuse 5.2.0 from the API lockfile. Use the locked API dependencies.
 | Model invocation | `model-call` with one `model-generation` per actual attempt | Each generation records role, model, prompt digest, available usage and failure state |
 | Reviewed answer | `chat-guidance` | `reviewed`, `conditional_fallback`, or `abstained`; abstention is a warning, not verified coverage |
 
-Graph nodes use `agent`, embeddings use `embedding`, and vector lookup uses `retriever`.
+Graph nodes use `agent`. The shared RAG search operation, `local-policy-search`,
+uses `tool`, so searches from the UI and claim workflow appear under the `TOOL`
+filter. Its nested query embedding uses `embedding`, and vector lookup uses
+`retriever`. Policy indexing remains a `span`. This labeling applies to new traces;
+previously recorded observations retain their original types.
 Human interrupts are expected pauses, not exporter/application errors. Review failures,
 transport failures and killed workers are separate signals. Missing provider usage or
 pricing remains missing: it must not be presented as zero cost.
