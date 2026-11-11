@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useUser } from '@clerk/react';
+import { useClerk, useUser } from '@clerk/react';
 import { CalendarDays, Mail, UserRound } from 'lucide-react';
 
 function accountDate(createdAt: Date | null | undefined) {
@@ -9,6 +9,7 @@ function accountDate(createdAt: Date | null | undefined) {
 
 export default function AccountPage() {
   const { user } = useUser();
+  const { openUserProfile } = useClerk();
 
   useEffect(() => {
     document.title = 'Your Account — Jeeves';
@@ -46,7 +47,10 @@ export default function AccountPage() {
             <dd data-testid="text-account-created" className="text-sm font-medium">{accountDate(user?.createdAt)}</dd>
           </div>
         </dl>
-        <p className="border-t border-border px-5 py-4 text-xs leading-5 text-muted-foreground sm:px-7">Account details are managed by your sign-in provider and can’t be edited here.</p>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-4 sm:px-7">
+          <p className="text-xs leading-5 text-muted-foreground">Manage your name and account details with your sign-in provider.</p>
+          <button type="button" data-testid="button-edit-account" onClick={() => openUserProfile()} className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Edit profile</button>
+        </div>
       </section>
     </div>
   );

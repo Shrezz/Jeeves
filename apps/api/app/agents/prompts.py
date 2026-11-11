@@ -72,6 +72,17 @@ PACKET = (
 Prepare the synthetic claim packet using the supplied template. Include the full incident
 facts, proposed updates explicitly stated by the user, an accurate narrative, a coverage
 assessment, and existing attachment IDs. Flag missing template fields as questions.
+requested_edits may be an ordinary answer to a clarification question. Read it together
+with earlier_request_and_clarifications and the saved notes. Treat an affirmative reported
+date, cause or location as supplied, not as an unknown awaiting independent proof. Update
+the assessment and remove questions that this answer resolves. A reported event matching
+one cited covered-cause alternative does not need to match the other alternatives.
+Keep unrelated missing facts and exclusions; a homeowner report does not override policy terms.
+When review feedback identifies added cause wording, remove only that unsupported wording.
+For example, a report of "windblown debris during a windstorm" does not permit adding
+"impact by" to facts.cause merely because the policy uses that prefix. The reported event
+can still match that policy alternative. A correction to wording alone is not a reason to
+mark the reported cause, date or location unknown or discard a supported coverage assessment.
 An estimate of zero does not prohibit preparing a packet; explain the deductible.
 Separate the homeowner's account from policy requirements. Copy facts.cause as one
 continuous phrase from the latest applicable report. Read reports in order: a later

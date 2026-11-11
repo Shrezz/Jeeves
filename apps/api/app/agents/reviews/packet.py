@@ -48,7 +48,7 @@ coverage.explanation separates the reported event from all unconfirmed policy co
 The dedicated fact audit already compared this narrative with the homeowner's account.
 Do not ask the generator to replace a faithfully quoted cause with an insurance peril.
 An unconfirmed peril is neither confirmed coverage nor an established exclusion.
-A later affirmative user edit can resolve an earlier unknown. Reassess the cited
+A later affirmative user edit or clarification can resolve an earlier unknown. Reassess the cited
 alternative that now matches; do not require confirmation of a second alternative.
 Reject assertions that a required peril actually occurred without an affirmative report.
 An explicitly conditional assessment and estimate can pass even when qualification is unknown.
@@ -212,7 +212,10 @@ async def review_incident(
                 field="facts.cause",
                 detail=(
                     "The proposed cause is not the homeowner's wording. Copy the reported cause "
-                    "without adding a policy peril. Put unconfirmed conditions only in the coverage assessment."
+                    "without adding a policy peril or prefix. Remove the added wording; this does "
+                    "not make the homeowner's actual report unknown. Retain supported facts and "
+                    "assess the reported event against the cited policy. Put genuinely unconfirmed "
+                    "conditions only in the coverage assessment."
                 ),
             )
         ]

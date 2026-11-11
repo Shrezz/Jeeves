@@ -38,6 +38,15 @@ async def reviewer(state: AgentState, runtime: Runtime[AgentContext]) -> AgentSt
         issues, questions = packet.validate(
             draft, claim, evidence, context, state["request"].message
         )
+        if not issues and questions and state.get("latest_correction"):
+            # Do not send an already-answered question back to the homeowner. The
+            # independent consistency audit can request regeneration; it cannot pass
+            # the packet or remove unrelated material gaps.
+            correction_issues = await packet.review_correction(
+                draft, state["latest_correction"], context.reviewer
+            )
+            if correction_issues:
+                issues, questions = correction_issues, []
         if not issues and not questions:
             issues = await packet.review_incident(
                 draft,
@@ -69,7 +78,11 @@ async def reviewer(state: AgentState, runtime: Runtime[AgentContext]) -> AgentSt
         payload["draft"] = draft.model_dump(mode="json")
         payload["template"] = context.template.model_dump(mode="json")
         # Unknown coverage inputs must never be cleared just to produce an estimate.
-        estimate = calculate_estimate(assessment) if assessment else None
+        estimate = (
+            calculate_estimate(assessment, if_eligible=isinstance(draft, PacketDraft))
+            if assessment
+            else None
+        )
         payload["calculated_estimate"] = estimate.model_dump(mode="json") if estimate else None
         # The rendered packet includes server arithmetic. Review that complete
         # artifact, not only the model-authored fields, without letting the model
@@ -154,5 +167,5 @@ async def reviewer(state: AgentState, runtime: Runtime[AgentContext]) -> AgentSt
     else:
         update["phase"] = "human_review"
         if isinstance(draft, PacketDraft):
-            update["estimate"] = calculate_estimate(draft.coverage)
+            update["estimate"] = calculate_estimate(draft.coverage, if_eligible=True)
     return update

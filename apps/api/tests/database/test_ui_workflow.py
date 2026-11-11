@@ -185,6 +185,7 @@ def test_clarified_ui_packet_preserves_pending_and_shows_only_conditional_illust
             {"unsupported": []},
             ReviewVerdict(outcome="needs_information", questions=["Is the repair pending?"]),
             {"unsupported": []},
+            {"result": "consistent", "comparison": "The clarified pending repair is retained."},
             ReviewVerdict(outcome="pass"),
         ]
     )

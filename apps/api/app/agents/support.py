@@ -130,9 +130,11 @@ def model_payload(
     )
     request = state["request"].model_dump(mode="json")
     original = request["message"]
-    if correction:
+    if correction and not original.endswith("\nUser clarification: " + correction):
         # Keep accumulated reports for unchanged facts without presenting stale
         # instructions as the current request. Human approval is tracked separately.
+        # A clarification supplements the current request (including a claim choice);
+        # it must not replace that request's intent or previously reported expense.
         request["message"] = correction
     statement = current_incident_statement(original)
     confirmed = claim.model_dump(mode="json") if claim else None
@@ -147,7 +149,7 @@ def model_payload(
             {
                 "earlier_request_and_clarifications": original.removesuffix(
                     "\nUser edit: " + correction
-                )
+                ).removesuffix("\nUser clarification: " + correction)
             }
             if correction
             else {}

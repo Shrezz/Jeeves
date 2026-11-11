@@ -349,8 +349,12 @@ def test_optional_invoice_is_reviewed_without_requiring_an_upload():
     state.update(run(file_claim, state, context))
     context.reviewer.outputs.extend([{"unsupported": []}, ReviewVerdict(outcome="pass")])
     state.update(run(reviewer, state, context))
-    assert state["phase"] == "human_review" and state["estimate"] is None
-    assert context.reviewer.calls[1]["payload"]["calculated_estimate"] is None
+    assert state["phase"] == "human_review"
+    assert state["estimate"].estimated_payment == 0
+    assert "If the reported expense is eligible" in state["estimate"].basis
+    assert context.reviewer.calls[1]["payload"]["calculated_estimate"] == state[
+        "estimate"
+    ].model_dump(mode="json")
 
 
 def test_unresolved_coverage_cannot_be_cleared_into_an_estimate():

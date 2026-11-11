@@ -24,6 +24,7 @@ def begin_request(state: AgentState) -> AgentState:
         "questions": [],
         "action_result": None,
         "clarified_repair_status": None,
+        "latest_correction": None,
         "artifact_version": 0,
     }
 
@@ -50,6 +51,10 @@ def clarify(state: AgentState) -> AgentState:
         "answer": None,
         "human_decision": None,
         "questions": [],
+        # New homeowner information supersedes earlier uncertainty, just like an edit.
+        # Keep the full report above, and give its revised draft a fresh review budget.
+        "latest_correction": reply.message,
+        "revision_count": 0,
         "clarified_repair_status": reconcile_repair_status(
             reply.message, state.get("clarified_repair_status")
         ),
